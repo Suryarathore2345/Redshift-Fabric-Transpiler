@@ -1,0 +1,13 @@
+[2m2026-05-19T05:25:00.913281Z[0m [[32m[1minfo     [0m] [1mpipeline_start                [0m [[0m[1m[34mpipeline[0m][0m [36msource[0m=[35mdemo.sql[0m
+[2m2026-05-19T05:25:00.915359Z[0m [[32m[1minfo     [0m] [1mstatements_found              [0m [[0m[1m[34mpipeline[0m][0m [36mcount[0m=[35m5[0m
+[2m2026-05-19T05:25:00.916756Z[0m [[32m[1minfo     [0m] [1mclassified                    [0m [[0m[1m[34mpipeline[0m][0m [36mcount[0m=[35m5[0m
+[2m2026-05-19T05:25:00.922698Z[0m [[33m[1mwarning  [0m] [1mcannot_parse_column           [0m [[0m[1m[34mtable_parser[0m][0m [36mraw[0m=[35mwith[0m
+[2m2026-05-19T05:25:00.924472Z[0m [[33m[1mwarning  [0m] [1mcannot_parse_column           [0m [[0m[1m[34mtable_parser[0m][0m [36mraw[0m=[35mSORTKEY[0m
+[2m2026-05-19T05:25:00.925469Z[0m [[33m[1mwarning  [0m] [1mcannot_parse_column           [0m [[0m[1m[34mtable_parser[0m][0m [36mraw[0m=[35mENCODE[0m
+[2m2026-05-19T05:25:00.925991Z[0m [[33m[1mwarning  [0m] [1mcannot_parse_column           [0m [[0m[1m[34mtable_parser[0m][0m [36mraw[0m=[35m'boolean)\nCREATE TABLE bi_alefdw.student_login (\n    login_date_dw_id    bigint'[0m
+[2m2026-05-19T05:25:00.930226Z[0m [[33m[1mwarning  [0m] [1mcannot_parse_column           [0m [[0m[1m[34mtable_parser[0m][0m [36mraw[0m=[35mVARCHAR(65535)[0m
+[2m2026-05-19T05:25:00.931202Z[0m [[33m[1mwarning  [0m] [1mcannot_parse_column           [0m [[0m[1m[34mtable_parser[0m][0m [36mraw[0m=[35m'numeric precision'[0m
+[2m2026-05-19T05:25:00.932489Z[0m [[33m[1mwarning  [0m] [1mvalidation_warnings           [0m [[0m[1m[34mvalidator[0m][0m [36mcount[0m=[35m1[0m [36mobject[0m=[35mbi_alefdw.total_teachers[0m
+[2m2026-05-19T05:25:00.935240Z[0m [[33m[1mwarning  [0m] [1mcannot_parse_column           [0m [[0m[1m[34mtable_parser[0m][0m [36mraw[0m=[35m'GEOMETRY — unsupported type'[0m
+[2m2026-05-19T05:25:00.940189Z[0m [[32m[1minfo     [0m] [1mpipeline_complete             [0m [[0m[1m[34mpipeline[0m][0m [36mduration_ms[0m=[35m27.7[0m [36mfailed[0m=[35m0[0m [36mmanual_review[0m=[35m0[0m [36mpartial[0m=[35m3[0m [36msource[0m=[35mdemo.sql[0m [36msuccessful[0m=[35m2[0m [36mtotal[0m=[35m5[0m
+[2m2026-05-19T05:25:00.963791Z[0m [[32m[1minfo     [0m] [1moutputs_written               [0m [[0m[1m[34moutput_generator[0m][0m [36mfiles[0m=[35m['tables', 'views', 'combined', 'report_md', 'report_json'][0m [36mjob[0m=[35m20260519_052500_demo[0m
