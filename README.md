@@ -8,7 +8,7 @@
 <img src="https://img.shields.io/badge/%E2%86%92-2d2d2d?style=for-the-badge" alt="→"/>
 &nbsp;&nbsp;
 <img src="https://img.shields.io/badge/Microsoft%20Fabric-%230078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="Microsoft Fabric"/>
-
+ 
 <br/><br/>
 
 # Redshift → Fabric DDL Converter
