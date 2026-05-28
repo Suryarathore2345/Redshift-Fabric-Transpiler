@@ -1,0 +1,1272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redshift → Fabric Converter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700&family=Syne:wght@400;500;600;700;800&family=Inter:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+/* ── CSS Variables ─────────────────────────────────────────────────── */
+:root {
+  --bg:          #0a0b0d;
+  --bg-2:        #0f1114;
+  --bg-3:        #141619;
+  --bg-panel:    #111316;
+  --border:      #1e2126;
+  --border-2:    #252a31;
+  --text:        #e8eaed;
+  --text-2:      #8b9099;
+  --text-3:      #555d6b;
+  --accent:      #00d4ff;
+  --accent-dim:  #00d4ff22;
+  --accent-2:    #7c3aed;
+  --green:       #00e676;
+  --green-dim:   #00e67620;
+  --amber:       #ffb300;
+  --amber-dim:   #ffb30020;
+  --red:         #ff5252;
+  --red-dim:     #ff525220;
+  --brand:       linear-gradient(135deg, #00d4ff 0%, #7c3aed 100%);
+  --font-mono:   'JetBrains Mono', monospace;
+  --font-display:'Syne', sans-serif;
+  --font-body:   'Inter', sans-serif;
+  --radius:      6px;
+  --radius-lg:   10px;
+  --shadow:      0 2px 20px rgba(0,0,0,.5);
+  --shadow-lg:   0 8px 60px rgba(0,0,0,.7);
+}
+
+/* ── Reset ─────────────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Grid noise texture overlay ────────────────────────────────────── */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 0; pointer-events: none;
+  background-image:
+    linear-gradient(rgba(0,212,255,.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,.015) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* ── Layout ─────────────────────────────────────────────────────────── */
+.wrap { position: relative; z-index: 1; max-width: 1400px; margin: 0 auto; padding: 0 24px; }
+
+/* ── Header ─────────────────────────────────────────────────────────── */
+header {
+  border-bottom: 1px solid var(--border);
+  padding: 20px 0;
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(10,11,13,.92);
+  backdrop-filter: blur(16px);
+}
+.header-inner {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.logo {
+  display: flex; align-items: center; gap: 14px;
+}
+.logo-mark {
+  width: 36px; height: 36px;
+  background: var(--brand);
+  border-radius: var(--radius);
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--font-mono); font-weight: 700; font-size: 14px; color: #000;
+  letter-spacing: -1px; flex-shrink: 0;
+}
+.logo-text { font-family: var(--font-display); font-size: 17px; font-weight: 700; }
+.logo-text span { color: var(--text-2); font-weight: 400; font-size: 13px; }
+.header-status { display: flex; align-items: center; gap: 10px; }
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--text-3);
+  transition: background .3s;
+}
+.status-dot.online { background: var(--green); box-shadow: 0 0 8px var(--green); }
+.status-label { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+.api-url { font-family: var(--font-mono); font-size: 11px; color: var(--accent); opacity: .6; }
+
+/* ── Hero ──────────────────────────────────────────────────────────── */
+.hero {
+  padding: 56px 0 40px;
+  text-align: center;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: var(--accent-dim); border: 1px solid rgba(0,212,255,.2);
+  color: var(--accent); font-family: var(--font-mono); font-size: 11px;
+  padding: 4px 12px; border-radius: 20px; margin-bottom: 24px;
+  letter-spacing: .08em;
+}
+.hero h1 {
+  font-family: var(--font-display);
+  font-size: clamp(32px, 5vw, 52px);
+  font-weight: 800; letter-spacing: -1.5px;
+  line-height: 1.1; margin-bottom: 16px;
+}
+.hero h1 .arrow {
+  display: inline-block;
+  background: var(--brand);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+  animation: pulse 3s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.7} }
+.hero p {
+  color: var(--text-2); font-size: 16px; max-width: 560px; margin: 0 auto 36px;
+  line-height: 1.7;
+}
+
+/* ── Stats bar ─────────────────────────────────────────────────────── */
+.stats-bar {
+  display: flex; justify-content: center; gap: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  overflow: hidden; margin-bottom: 44px; max-width: 600px; margin-left: auto; margin-right: auto;
+}
+.stat {
+  flex: 1; padding: 14px 20px; text-align: center;
+  border-right: 1px solid var(--border);
+}
+.stat:last-child { border-right: none; }
+.stat-val {
+  font-family: var(--font-mono); font-size: 20px; font-weight: 700;
+  background: var(--brand); -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent; background-clip: text;
+}
+.stat-label { font-size: 11px; color: var(--text-3); margin-top: 2px; letter-spacing: .04em; }
+
+/* ── Main converter card ────────────────────────────────────────────── */
+.converter-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: 32px;
+  box-shadow: var(--shadow-lg);
+}
+
+/* ── Tab bar ───────────────────────────────────────────────────────── */
+.tab-bar {
+  display: flex; border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.tab {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 24px;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  color: var(--text-3); cursor: pointer; border: none; background: none;
+  border-bottom: 2px solid transparent;
+  transition: all .2s; position: relative; top: 1px;
+  letter-spacing: .04em;
+}
+.tab:hover { color: var(--text-2); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+.tab-icon { font-size: 15px; }
+
+/* ── Input panels ──────────────────────────────────────────────────── */
+.input-panel { display: none; }
+.input-panel.active { display: block; }
+
+/* ── Paste mode ────────────────────────────────────────────────────── */
+.editor-wrap { position: relative; }
+.editor-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 16px; border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+}
+.editor-label {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+  display: flex; align-items: center; gap: 6px;
+}
+.editor-label::before {
+  content: '●'; color: var(--red); font-size: 10px;
+}
+.editor-actions { display: flex; gap: 8px; }
+.btn-sm {
+  padding: 4px 12px; border-radius: var(--radius);
+  font-family: var(--font-mono); font-size: 11px; cursor: pointer;
+  border: 1px solid var(--border-2); background: var(--bg-3);
+  color: var(--text-2); transition: all .2s;
+}
+.btn-sm:hover { border-color: var(--accent); color: var(--accent); }
+.code-editor {
+  width: 100%; min-height: 300px; max-height: 480px;
+  background: var(--bg); border: none; outline: none; resize: vertical;
+  color: var(--text); font-family: var(--font-mono); font-size: 13px;
+  line-height: 1.7; padding: 20px 24px;
+  tab-size: 4; caret-color: var(--accent);
+}
+.code-editor::placeholder { color: var(--text-3); }
+
+/* ── Upload mode ───────────────────────────────────────────────────── */
+.upload-zone {
+  padding: 48px 24px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 2px dashed var(--border-2);
+  margin: 24px; border-radius: var(--radius-lg);
+  cursor: pointer; transition: all .3s; text-align: center;
+  position: relative;
+}
+.upload-zone:hover, .upload-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+.upload-zone input[type=file] {
+  position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+}
+.upload-icon {
+  font-size: 40px; margin-bottom: 14px;
+  background: var(--brand); -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent; background-clip: text;
+}
+.upload-title { font-family: var(--font-display); font-size: 17px; font-weight: 600; margin-bottom: 6px; }
+.upload-sub { color: var(--text-2); font-size: 13px; margin-bottom: 16px; }
+.upload-types {
+  display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+}
+.file-tag {
+  background: var(--bg-3); border: 1px solid var(--border-2);
+  padding: 3px 10px; border-radius: 4px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+}
+.file-selected {
+  display: none; align-items: center; gap: 12px;
+  padding: 16px 24px; margin: 0 24px 0;
+  background: var(--green-dim); border: 1px solid rgba(0,230,118,.2);
+  border-radius: var(--radius); margin-bottom: 4px;
+}
+.file-selected.show { display: flex; }
+.file-selected-name {
+  font-family: var(--font-mono); font-size: 13px; color: var(--green);
+  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.file-remove {
+  color: var(--text-3); cursor: pointer; font-size: 18px; line-height: 1;
+  transition: color .2s; flex-shrink: 0;
+}
+.file-remove:hover { color: var(--red); }
+
+/* ── Action bar ────────────────────────────────────────────────────── */
+.action-bar {
+  padding: 16px 20px;
+  display: flex; align-items: center; justify-content: space-between;
+  border-top: 1px solid var(--border);
+  background: var(--bg-2); gap: 12px;
+}
+.action-bar-left { display: flex; align-items: center; gap: 10px; }
+.char-count { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+.btn-convert {
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 28px; border-radius: var(--radius);
+  background: var(--brand);
+  border: none; cursor: pointer;
+  font-family: var(--font-mono); font-size: 13px; font-weight: 600;
+  color: #000; letter-spacing: .04em;
+  transition: all .2s; position: relative; overflow: hidden;
+  white-space: nowrap;
+}
+.btn-convert::after {
+  content: ''; position: absolute; inset: 0;
+  background: rgba(255,255,255,0); transition: background .2s;
+}
+.btn-convert:hover::after { background: rgba(255,255,255,.1); }
+.btn-convert:disabled { opacity: .4; cursor: not-allowed; }
+.btn-convert.loading .btn-text { opacity: 0; }
+.btn-convert.loading::before {
+  content: '';
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: inherit;
+}
+.spinner {
+  width: 16px; height: 16px;
+  border: 2px solid rgba(0,0,0,.3);
+  border-top-color: #000;
+  border-radius: 50%;
+  animation: spin .7s linear infinite;
+  display: none;
+}
+.btn-convert.loading .spinner { display: block; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* ── Error banner ──────────────────────────────────────────────────── */
+.error-banner {
+  display: none; margin: 16px 20px 0;
+  padding: 12px 16px; border-radius: var(--radius);
+  background: var(--red-dim); border: 1px solid rgba(255,82,82,.3);
+  color: var(--red); font-family: var(--font-mono); font-size: 12px;
+}
+.error-banner.show { display: block; }
+
+/* ── Results section ───────────────────────────────────────────────── */
+.results-section {
+  display: none; animation: fadeUp .4s ease;
+}
+.results-section.show { display: block; }
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Summary strip ─────────────────────────────────────────────────── */
+.summary-strip {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 20px 24px;
+  display: flex; align-items: center; gap: 0;
+  flex-wrap: wrap; gap: 16px;
+  margin-bottom: 20px;
+}
+.summary-strip-header {
+  font-family: var(--font-display); font-size: 16px; font-weight: 700;
+  margin-right: auto; display: flex; align-items: center; gap: 10px;
+}
+.summary-chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  display: flex; align-items: center; gap: 5px;
+  padding: 5px 12px; border-radius: 20px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  border: 1px solid;
+}
+.chip-success { background: var(--green-dim); border-color: rgba(0,230,118,.3); color: var(--green); }
+.chip-warn    { background: var(--amber-dim); border-color: rgba(255,179,0,.3); color: var(--amber); }
+.chip-err     { background: var(--red-dim);   border-color: rgba(255,82,82,.3); color: var(--red); }
+.chip-info    { background: var(--accent-dim);border-color: rgba(0,212,255,.2); color: var(--accent); }
+.chip-neutral { background: var(--bg-3); border-color: var(--border-2); color: var(--text-2); }
+
+.confidence-bar-wrap { display: flex; align-items: center; gap: 10px; }
+.confidence-bar {
+  width: 120px; height: 6px;
+  background: var(--border); border-radius: 3px; overflow: hidden;
+}
+.confidence-fill {
+  height: 100%; border-radius: 3px;
+  background: var(--brand); transition: width .8s cubic-bezier(.4,0,.2,1);
+  width: 0;
+}
+.confidence-label { font-family: var(--font-mono); font-size: 12px; color: var(--text-2); }
+
+/* ── Download bar ──────────────────────────────────────────────────── */
+.download-bar {
+  display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;
+}
+.btn-dl {
+  display: flex; align-items: center; gap: 7px;
+  padding: 9px 18px; border-radius: var(--radius);
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  cursor: pointer; border: 1px solid; transition: all .2s;
+  text-decoration: none;
+}
+.btn-dl-primary {
+  background: var(--accent-dim); border-color: rgba(0,212,255,.3);
+  color: var(--accent);
+}
+.btn-dl-primary:hover { background: rgba(0,212,255,.15); border-color: var(--accent); }
+.btn-dl-secondary { background: var(--bg-3); border-color: var(--border-2); color: var(--text-2); }
+.btn-dl-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ── Object grid ───────────────────────────────────────────────────── */
+.objects-header {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.objects-title {
+  font-family: var(--font-display); font-size: 14px; font-weight: 600;
+  color: var(--text-2); letter-spacing: .04em; text-transform: uppercase;
+  display: flex; align-items: center; gap: 8px;
+}
+.objects-title::before { content: ''; width: 3px; height: 14px; background: var(--accent); border-radius: 2px; }
+.search-input {
+  background: var(--bg-3); border: 1px solid var(--border-2);
+  border-radius: var(--radius); padding: 6px 12px;
+  font-family: var(--font-mono); font-size: 12px; color: var(--text);
+  outline: none; width: 200px; transition: border-color .2s;
+}
+.search-input:focus { border-color: var(--accent); }
+.search-input::placeholder { color: var(--text-3); }
+
+/* ── Object card ───────────────────────────────────────────────────── */
+.obj-list { display: flex; flex-direction: column; gap: 10px; margin-bottom: 28px; }
+.obj-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  transition: border-color .2s;
+}
+.obj-card:hover { border-color: var(--border-2); }
+.obj-card-header {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 18px; cursor: pointer;
+  user-select: none;
+}
+.obj-type-badge {
+  padding: 2px 8px; border-radius: 3px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+  letter-spacing: .06em; flex-shrink: 0;
+}
+.badge-table { background: rgba(124,58,237,.2); color: #a78bfa; border: 1px solid rgba(124,58,237,.3); }
+.badge-view  { background: rgba(0,212,255,.15); color: var(--accent); border: 1px solid rgba(0,212,255,.25); }
+.badge-mv    { background: rgba(255,179,0,.15); color: var(--amber); border: 1px solid rgba(255,179,0,.25); }
+.obj-name {
+  font-family: var(--font-mono); font-size: 13px; flex: 1;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.obj-source { color: var(--text-3); }
+.obj-arrow  { color: var(--accent); margin: 0 4px; }
+.obj-target { color: var(--text); }
+.obj-meta { display: flex; align-items: center; gap: 8px; margin-left: auto; flex-shrink: 0; }
+.status-badge {
+  padding: 2px 8px; border-radius: 3px;
+  font-family: var(--font-mono); font-size: 10px; font-weight: 600;
+}
+.s-high    { background: var(--green-dim); color: var(--green); border: 1px solid rgba(0,230,118,.2); }
+.s-partial { background: var(--amber-dim); color: var(--amber); border: 1px solid rgba(255,179,0,.2); }
+.s-manual  { background: rgba(255,100,0,.15); color: #ff7043; border: 1px solid rgba(255,100,0,.2); }
+.s-failed  { background: var(--red-dim); color: var(--red); border: 1px solid rgba(255,82,82,.2); }
+.conf-mini { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+.warn-count-badge {
+  display: flex; align-items: center; gap: 4px;
+  font-family: var(--font-mono); font-size: 10px;
+  color: var(--amber); padding: 1px 6px;
+  background: var(--amber-dim); border-radius: 3px;
+  border: 1px solid rgba(255,179,0,.2);
+}
+.expand-icon {
+  color: var(--text-3); font-size: 12px; transition: transform .25s;
+  flex-shrink: 0;
+}
+.obj-card.expanded .expand-icon { transform: rotate(180deg); }
+
+/* ── Object card body ──────────────────────────────────────────────── */
+.obj-card-body { display: none; border-top: 1px solid var(--border); }
+.obj-card.expanded .obj-card-body { display: block; }
+
+/* ── Warnings ──────────────────────────────────────────────────────── */
+.warnings-list {
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  display: flex; flex-direction: column; gap: 8px;
+}
+.warning-item {
+  display: flex; gap: 10px;
+  padding: 10px 12px; border-radius: var(--radius);
+  border: 1px solid;
+}
+.wi-warn { background: var(--amber-dim); border-color: rgba(255,179,0,.2); }
+.wi-err  { background: var(--red-dim);   border-color: rgba(255,82,82,.2); }
+.wi-info { background: var(--accent-dim);border-color: rgba(0,212,255,.15); }
+.warning-icon { font-size: 14px; flex-shrink: 0; padding-top: 1px; }
+.warning-body { flex: 1; min-width: 0; }
+.warning-code {
+  font-family: var(--font-mono); font-size: 11px; font-weight: 600;
+  margin-bottom: 3px; opacity: .8;
+}
+.warning-msg  { font-size: 12px; color: var(--text-2); line-height: 1.5; }
+.warning-sugg { font-size: 11px; color: var(--text-3); margin-top: 4px; }
+.warning-sugg::before { content: '💡 '; }
+
+/* ── SQL output ────────────────────────────────────────────────────── */
+.sql-output-wrap {
+  position: relative;
+}
+.sql-output-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 8px 18px; background: var(--bg-2);
+  border-bottom: 1px solid var(--border);
+}
+.sql-output-label {
+  font-family: var(--font-mono); font-size: 11px; color: var(--text-3);
+  display: flex; align-items: center; gap: 6px;
+}
+.sql-output-label::before { content: '●'; color: var(--green); font-size: 9px; }
+.btn-copy {
+  display: flex; align-items: center; gap: 5px;
+  padding: 4px 10px; border-radius: var(--radius);
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--bg-3); border: 1px solid var(--border-2);
+  color: var(--text-2); cursor: pointer; transition: all .2s;
+}
+.btn-copy:hover { border-color: var(--accent); color: var(--accent); }
+.btn-copy.copied { border-color: var(--green); color: var(--green); }
+.sql-output {
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.75;
+  padding: 20px 24px; background: #080a0c;
+  white-space: pre; overflow-x: auto; max-height: 500px; overflow-y: auto;
+  color: #b0bec5;
+  tab-size: 4;
+}
+
+/* ── Syntax highlight classes ──────────────────────────────────────── */
+.kw  { color: #7986cb; }
+.fn  { color: #4fc3f7; }
+.str { color: #a5d6a7; }
+.num { color: #ffcc80; }
+.cmt { color: #455a64; font-style: italic; }
+.ph  { color: #ce93d8; }   /* placeholder ${...} */
+.op  { color: #80cbc4; }
+
+/* ── Rules list ────────────────────────────────────────────────────── */
+.rules-list {
+  padding: 12px 18px; display: flex; flex-wrap: wrap; gap: 6px;
+  border-bottom: 1px solid var(--border);
+}
+.rule-tag {
+  font-family: var(--font-mono); font-size: 10px;
+  padding: 2px 8px; border-radius: 3px;
+  background: var(--bg-3); border: 1px solid var(--border-2); color: var(--text-3);
+}
+
+/* ── Section divider ───────────────────────────────────────────────── */
+.section-divider {
+  height: 1px; background: var(--border);
+  margin: 24px 0; position: relative;
+}
+
+/* ── Empty state ───────────────────────────────────────────────────── */
+.empty-state {
+  text-align: center; padding: 60px 24px;
+  color: var(--text-3); font-size: 13px;
+}
+.empty-icon { font-size: 36px; margin-bottom: 12px; opacity: .4; }
+
+/* ── Toast ─────────────────────────────────────────────────────────── */
+.toast-container { position: fixed; bottom: 24px; right: 24px; z-index: 999; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  background: var(--bg-panel); border: 1px solid var(--border-2);
+  padding: 12px 18px; border-radius: var(--radius);
+  font-family: var(--font-mono); font-size: 12px; color: var(--text);
+  box-shadow: var(--shadow-lg);
+  animation: slideIn .3s ease; max-width: 320px;
+}
+.toast.success { border-color: rgba(0,230,118,.3); color: var(--green); }
+.toast.error   { border-color: rgba(255,82,82,.3);  color: var(--red); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } }
+
+/* ── Footer ────────────────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border);
+  padding: 24px 0; margin-top: 48px;
+}
+.footer-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  flex-wrap: wrap; gap: 12px;
+}
+.footer-text { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); }
+.footer-links { display: flex; gap: 16px; }
+.footer-link { font-family: var(--font-mono); font-size: 11px; color: var(--text-3); text-decoration: none; transition: color .2s; }
+.footer-link:hover { color: var(--accent); }
+
+/* ── Scrollbar styling ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border-2); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-3); }
+
+/* ── Responsive ────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
+  .stats-bar { flex-direction: column; }
+  .stat { border-right: none; border-bottom: 1px solid var(--border); }
+  .stat:last-child { border-bottom: none; }
+  .obj-name { font-size: 11px; }
+  .btn-convert { padding: 10px 18px; font-size: 12px; }
+  .summary-strip { flex-direction: column; align-items: flex-start; }
+}
+</style>
+</head>
+<body>
+
+<!-- ── Header ─────────────────────────────────────────────────────── -->
+<header>
+  <div class="wrap">
+    <div class="header-inner">
+      <div class="logo">
+        <div class="logo-mark">R→F</div>
+        <div class="logo-text">
+          Redshift → Fabric
+          <br><span>DDL Converter &nbsp;v7</span>
+        </div>
+      </div>
+      <div class="header-status">
+        <div class="status-dot" id="statusDot"></div>
+        <span class="status-label" id="statusLabel">CONNECTING</span>
+        <span class="api-url" id="apiUrlLabel"></span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ── Hero ───────────────────────────────────────────────────────── -->
+<div class="wrap">
+  <div class="hero">
+    <div class="hero-badge">⚡ ENTERPRISE DDL TRANSPILER</div>
+    <h1>
+      AWS Redshift
+      <span class="arrow"> → </span>
+      Microsoft Fabric
+    </h1>
+    <p>
+      Paste your DDL or upload a .sql file. Tables, views, and materialised views
+      are converted to parameterised Fabric T-SQL with full diagnostic reporting.
+    </p>
+    <div class="stats-bar">
+      <div class="stat"><div class="stat-val">29+</div><div class="stat-label">TYPE MAPPINGS</div></div>
+      <div class="stat"><div class="stat-val">40+</div><div class="stat-label">FUNCTION RULES</div></div>
+      <div class="stat"><div class="stat-val">97%</div><div class="stat-label">AVG SUCCESS RATE</div></div>
+    </div>
+  </div>
+
+  <!-- ── Converter card ─────────────────────────────────────────── -->
+  <div class="converter-card">
+
+    <!-- Tab bar -->
+    <div class="tab-bar">
+      <button class="tab active" onclick="switchTab('paste')" id="tab-paste">
+        <span class="tab-icon">✏️</span> PASTE SQL
+      </button>
+      <button class="tab" onclick="switchTab('upload')" id="tab-upload">
+        <span class="tab-icon">📁</span> UPLOAD FILE
+      </button>
+    </div>
+
+    <!-- Paste panel -->
+    <div class="input-panel active" id="panel-paste">
+      <div class="editor-wrap">
+        <div class="editor-toolbar">
+          <span class="editor-label">redshift_ddl.sql</span>
+          <div class="editor-actions">
+            <button class="btn-sm" onclick="loadSample()">Load Sample</button>
+            <button class="btn-sm" onclick="clearEditor()">Clear</button>
+          </div>
+        </div>
+        <textarea
+          class="code-editor"
+          id="sqlEditor"
+          placeholder="-- Paste your Redshift DDL here&#10;-- Supports CREATE TABLE, CREATE VIEW, CREATE MATERIALIZED VIEW&#10;-- Multiple statements separated by semicolons&#10;&#10;CREATE TABLE bi_alefdw.student_login (&#10;    login_date_dw_id bigint ENCODE raw,&#10;    school_dw_id     bigint ENCODE raw DISTKEY,&#10;    outside_school_flag boolean ENCODE raw,&#10;    login_local_date_time timestamp without time zone ENCODE az64&#10;) DISTSTYLE AUTO SORTKEY (school_dw_id, login_date_dw_id);"
+          spellcheck="false"
+          autocomplete="off"
+          autocorrect="off"
+          autocapitalize="off"
+        ></textarea>
+      </div>
+    </div>
+
+    <!-- Upload panel -->
+    <div class="input-panel" id="panel-upload">
+      <div class="file-selected" id="fileSelected">
+        <span>📄</span>
+        <span class="file-selected-name" id="fileName"></span>
+        <span class="file-remove" onclick="removeFile()" title="Remove file">✕</span>
+      </div>
+      <div class="upload-zone" id="uploadZone">
+        <input type="file" id="fileInput" accept=".sql,.txt" onchange="handleFileSelect(event)">
+        <div class="upload-icon">⬆</div>
+        <div class="upload-title">Drop your file here</div>
+        <div class="upload-sub">or click to browse your computer</div>
+        <div class="upload-types">
+          <span class="file-tag">.sql</span>
+          <span class="file-tag">.txt</span>
+          <span class="file-tag">max 50 MB</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Error banner -->
+    <div class="error-banner" id="errorBanner"></div>
+
+    <!-- Action bar -->
+    <div class="action-bar">
+      <div class="action-bar-left">
+        <span class="char-count" id="charCount">0 chars</span>
+      </div>
+      <button class="btn-convert" id="convertBtn" onclick="runConversion()">
+        <div class="spinner" id="spinner"></div>
+        <span class="btn-text" id="btnText">⚡ Convert to Fabric T-SQL</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- ── Results ───────────────────────────────────────────────── -->
+  <div class="results-section" id="resultsSection">
+
+    <!-- Summary strip -->
+    <div class="summary-strip" id="summaryStrip">
+      <div class="summary-strip-header">
+        <span>📊</span>
+        <span id="summaryTitle">Conversion Results</span>
+      </div>
+      <div class="summary-chips" id="summaryChips"></div>
+      <div class="confidence-bar-wrap">
+        <div class="confidence-bar"><div class="confidence-fill" id="confFill"></div></div>
+        <span class="confidence-label" id="confLabel">—</span>
+      </div>
+    </div>
+
+    <!-- Download bar -->
+    <div class="download-bar" id="downloadBar"></div>
+
+    <!-- Tables -->
+    <div id="tablesSection">
+      <div class="objects-header">
+        <div class="objects-title">Tables</div>
+        <input class="search-input" id="tableSearch" placeholder="Filter tables…" oninput="filterObjects('table')" style="display:none">
+      </div>
+      <div class="obj-list" id="tableList"></div>
+    </div>
+
+    <!-- Views -->
+    <div id="viewsSection">
+      <div class="objects-header">
+        <div class="objects-title">Views / Procedures</div>
+        <input class="search-input" id="viewSearch" placeholder="Filter views…" oninput="filterObjects('view')" style="display:none">
+      </div>
+      <div class="obj-list" id="viewList"></div>
+    </div>
+
+  </div><!-- /results-section -->
+
+</div><!-- /wrap -->
+
+<!-- ── Footer ────────────────────────────────────────────────────── -->
+<footer>
+  <div class="wrap">
+    <div class="footer-inner">
+      <span class="footer-text">Redshift → Fabric DDL Converter · Enterprise Migration Tooling</span>
+      <div class="footer-links">
+        <a class="footer-link" href="/docs" target="_blank">API Docs</a>
+        <a class="footer-link" href="/redoc" target="_blank">ReDoc</a>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ── Toast container ───────────────────────────────────────────── -->
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+// ── Config ──────────────────────────────────────────────────────────────────
+const API_BASE = '';   // empty = same origin; change to 'http://localhost:8000' if needed
+
+// ── State ───────────────────────────────────────────────────────────────────
+let currentTab = 'paste';
+let selectedFile = null;
+let lastBatchResult = null;
+
+// ── Initialise ──────────────────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  checkApiHealth();
+  updateCharCount();
+
+  document.getElementById('sqlEditor').addEventListener('input', updateCharCount);
+
+  // Drag-and-drop on upload zone
+  const zone = document.getElementById('uploadZone');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => {
+    e.preventDefault(); zone.classList.remove('drag-over');
+    const f = e.dataTransfer.files[0];
+    if (f) setSelectedFile(f);
+  });
+});
+
+// ── API health check ─────────────────────────────────────────────────────────
+async function checkApiHealth() {
+  const dot   = document.getElementById('statusDot');
+  const label = document.getElementById('statusLabel');
+  const urlEl = document.getElementById('apiUrlLabel');
+  urlEl.textContent = API_BASE || window.location.origin;
+  try {
+    const res = await fetch(`${API_BASE}/api/v1/health`);
+    if (res.ok) {
+      dot.classList.add('online');
+      label.textContent = 'API ONLINE';
+    } else throw new Error();
+  } catch {
+    label.textContent = 'API OFFLINE';
+    label.style.color = 'var(--red)';
+  }
+}
+
+// ── Tab switching ─────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  currentTab = tab;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.input-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`tab-${tab}`).classList.add('active');
+  document.getElementById(`panel-${tab}`).classList.add('active');
+  hideError();
+}
+
+// ── Editor helpers ────────────────────────────────────────────────────────────
+function updateCharCount() {
+  const val = document.getElementById('sqlEditor').value;
+  document.getElementById('charCount').textContent =
+    val.length.toLocaleString() + ' chars · ' + (val.split(';').filter(s => s.trim()).length) + ' statements';
+}
+
+function clearEditor() {
+  document.getElementById('sqlEditor').value = '';
+  updateCharCount();
+}
+
+function loadSample() {
+  document.getElementById('sqlEditor').value = `-- Sample: Redshift DDL for conversion
+
+CREATE TABLE bi_alefdw.student_login (
+    login_date_dw_id    bigint ENCODE raw,
+    student_dw_id       bigint ENCODE az64,
+    school_dw_id        bigint ENCODE raw DISTKEY,
+    outside_school_flag boolean ENCODE raw,
+    login_local_date_time timestamp without time zone ENCODE az64,
+    inserted_at         timestamp with time zone ENCODE az64
+) DISTSTYLE AUTO SORTKEY (school_dw_id, login_date_dw_id);
+
+
+CREATE TABLE bi_alefdw.map_polygons (
+    geometry    geometry ENCODE raw,
+    gid_0       character varying(256) ENCODE lzo,
+    name_0      character varying(256) ENCODE lzo,
+    is_valid_polygon character varying(50) ENCODE lzo
+) DISTSTYLE AUTO;
+
+
+CREATE OR REPLACE VIEW bi_alefdw.v_student_summary
+WITH NO SCHEMA BINDING AS
+SELECT
+    sl.school_dw_id,
+    sl.student_dw_id,
+    NVL(sl.outside_school_flag, FALSE) IS FALSE      AS inside_school_flag,
+    DATE_TRUNC('week', sl.login_local_date_time)     AS login_week,
+    DATE_TRUNC('month', sl.login_local_date_time)    AS login_month,
+    CURRENT_DATE                                      AS report_date,
+    sl.login_local_date_time::date                   AS login_date,
+    COALESCE(sl.student_dw_id, 0)                    AS student_id_safe,
+    COUNT(*) AS login_count
+FROM bi_alefdw.student_login sl
+WHERE sl.outside_school_flag IS FALSE
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8;`;
+  updateCharCount();
+}
+
+// ── File upload ───────────────────────────────────────────────────────────────
+function handleFileSelect(e) {
+  const f = e.target.files[0];
+  if (f) setSelectedFile(f);
+}
+
+function setSelectedFile(f) {
+  selectedFile = f;
+  document.getElementById('fileName').textContent = `${f.name}  (${formatBytes(f.size)})`;
+  document.getElementById('fileSelected').classList.add('show');
+  document.getElementById('uploadZone').style.opacity = '0.4';
+  document.getElementById('uploadZone').style.pointerEvents = 'none';
+}
+
+function removeFile() {
+  selectedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('fileSelected').classList.remove('show');
+  document.getElementById('uploadZone').style.opacity = '';
+  document.getElementById('uploadZone').style.pointerEvents = '';
+}
+
+function formatBytes(b) {
+  if (b < 1024) return b + ' B';
+  if (b < 1024*1024) return (b/1024).toFixed(1) + ' KB';
+  return (b/1024/1024).toFixed(2) + ' MB';
+}
+
+// ── Conversion ────────────────────────────────────────────────────────────────
+async function runConversion() {
+  hideError();
+  setLoading(true);
+
+  try {
+    let data;
+    if (currentTab === 'paste') {
+      const sql = document.getElementById('sqlEditor').value.trim();
+      if (!sql) { showError('Please paste some Redshift DDL before converting.'); return; }
+      const res = await fetch(`${API_BASE}/api/v1/convert/sql`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sql, source_filename: 'inline_input.sql' }),
+      });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.statusText); }
+      data = await res.json();
+    } else {
+      if (!selectedFile) { showError('Please select a .sql or .txt file to upload.'); return; }
+      const form = new FormData();
+      form.append('file', selectedFile);
+      const res = await fetch(`${API_BASE}/api/v1/convert/file`, { method: 'POST', body: form });
+      if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.statusText); }
+      data = await res.json();
+    }
+
+    lastBatchResult = data;
+    renderResults(data);
+    showToast(`✅ Converted ${data.total_objects} objects in ${data.total_time_ms.toFixed(0)}ms`, 'success');
+  } catch (err) {
+    showError(`Conversion failed: ${err.message}`);
+    showToast(`❌ ${err.message}`, 'error');
+  } finally {
+    setLoading(false);
+  }
+}
+
+function setLoading(on) {
+  const btn = document.getElementById('convertBtn');
+  btn.disabled = on;
+  btn.classList.toggle('loading', on);
+}
+
+// ── Results rendering ─────────────────────────────────────────────────────────
+function renderResults(data) {
+  const sec = document.getElementById('resultsSection');
+  sec.classList.add('show');
+  sec.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+  // Summary title
+  document.getElementById('summaryTitle').textContent =
+    `${data.source_filename} — ${data.total_objects} object${data.total_objects !== 1 ? 's' : ''}`;
+
+  // Chips
+  const chips = document.getElementById('summaryChips');
+  chips.innerHTML = '';
+  if (data.successful)    chips.innerHTML += chip('success', `✅ ${data.successful} High confidence`);
+  if (data.partial)       chips.innerHTML += chip('warn',    `⚠️ ${data.partial} Partial`);
+  if (data.manual_review) chips.innerHTML += chip('err',     `🔍 ${data.manual_review} Manual review`);
+  if (data.failed)        chips.innerHTML += chip('err',     `❌ ${data.failed} Failed`);
+  chips.innerHTML += chip('info', `⏱ ${data.total_time_ms.toFixed(0)}ms`);
+  chips.innerHTML += chip('neutral', `${(data.success_rate*100).toFixed(0)}% success`);
+
+  // Confidence bar
+  const avgConf = calcAvgConf(data);
+  setTimeout(() => {
+    document.getElementById('confFill').style.width = (avgConf * 100) + '%';
+  }, 100);
+  document.getElementById('confLabel').textContent = (avgConf * 100).toFixed(0) + '% avg confidence';
+
+  // Downloads
+  renderDownloads(data);
+
+  // Objects
+  renderObjectList('table', data.tables, 'tableList', 'tableSearch', 'tablesSection');
+  renderObjectList('view',  data.views,  'viewList',  'viewSearch',  'viewsSection');
+}
+
+function chip(type, text) {
+  return `<span class="chip chip-${type}">${text}</span>`;
+}
+
+function calcAvgConf(data) {
+  const all = [...data.tables, ...data.views];
+  if (!all.length) return 0;
+  return all.reduce((s, r) => s + r.confidence_score, 0) / all.length;
+}
+
+function renderDownloads(data) {
+  const bar = document.getElementById('downloadBar');
+  bar.innerHTML = '';
+
+  if (data.output_files) {
+    const combined = data.output_files.combined;
+    if (combined) {
+      bar.innerHTML += `
+        <button class="btn-dl btn-dl-primary" onclick="downloadFile('${escAttr(combined)}', 'all_converted.sql')">
+          ⬇ Download All (Combined SQL)
+        </button>`;
+    }
+    if (data.output_files.tables) {
+      bar.innerHTML += `
+        <button class="btn-dl btn-dl-secondary" onclick="downloadFile('${escAttr(data.output_files.tables)}', 'converted_tables.sql')">
+          ⬇ Tables Only
+        </button>`;
+    }
+    if (data.output_files.views) {
+      bar.innerHTML += `
+        <button class="btn-dl btn-dl-secondary" onclick="downloadFile('${escAttr(data.output_files.views)}', 'converted_views.sql')">
+          ⬇ Views Only
+        </button>`;
+    }
+    if (data.output_files.report_md) {
+      bar.innerHTML += `
+        <button class="btn-dl btn-dl-secondary" onclick="downloadFile('${escAttr(data.output_files.report_md)}', 'conversion_report.md')">
+          📄 Markdown Report
+        </button>`;
+    }
+  }
+
+  // Copy all button
+  bar.innerHTML += `
+    <button class="btn-dl btn-dl-secondary" id="copyAllBtn" onclick="copyAllSQL()">
+      📋 Copy All SQL
+    </button>`;
+}
+
+async function downloadFile(serverPath, suggestedName) {
+  try {
+    // Extract relative path for download endpoint
+    const parts = serverPath.split(/[\/\\]data[\/\\]outputs[\/\\]/);
+    if (parts.length < 2) {
+      // Fallback: download from content
+      downloadAllFromMemory(suggestedName);
+      return;
+    }
+    const relPath = parts[1];
+    const res = await fetch(`${API_BASE}/api/v1/convert/download/${relPath}`);
+    if (!res.ok) throw new Error('Download failed');
+    const blob = await res.blob();
+    triggerDownload(blob, suggestedName);
+    showToast(`⬇ Downloaded ${suggestedName}`, 'success');
+  } catch {
+    // Fallback: build from in-memory data
+    downloadAllFromMemory(suggestedName);
+  }
+}
+
+function downloadAllFromMemory(filename) {
+  if (!lastBatchResult) return;
+  const all = [...lastBatchResult.tables, ...lastBatchResult.views];
+  const combined = all.map(r => r.output_sql).join('\n\n');
+  const blob = new Blob([combined], { type: 'text/plain' });
+  triggerDownload(blob, filename || 'all_converted.sql');
+  showToast('⬇ Downloaded from memory', 'success');
+}
+
+function triggerDownload(blob, name) {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = name; a.click();
+  URL.revokeObjectURL(url);
+}
+
+async function copyAllSQL() {
+  if (!lastBatchResult) return;
+  const all = [...lastBatchResult.tables, ...lastBatchResult.views];
+  const combined = all.map(r => r.output_sql).join('\n\n');
+  await navigator.clipboard.writeText(combined);
+  const btn = document.getElementById('copyAllBtn');
+  btn.textContent = '✅ Copied!';
+  setTimeout(() => btn.textContent = '📋 Copy All SQL', 2000);
+  showToast('📋 All SQL copied to clipboard', 'success');
+}
+
+function renderObjectList(type, items, listId, searchId, sectionId) {
+  const list    = document.getElementById(listId);
+  const search  = document.getElementById(searchId);
+  const section = document.getElementById(sectionId);
+
+  list.innerHTML = '';
+
+  if (!items || items.length === 0) {
+    section.style.display = 'none';
+    return;
+  }
+  section.style.display = '';
+  if (items.length > 4) search.style.display = '';
+
+  items.forEach((r, i) => {
+    list.appendChild(buildObjectCard(r, type, i));
+  });
+}
+
+function buildObjectCard(r, type, idx) {
+  const card = document.createElement('div');
+  card.className = 'obj-card';
+  card.dataset.name = r.source_name.toLowerCase();
+
+  const statusClass = {
+    'HIGH_CONFIDENCE': 's-high',
+    'PARTIAL':         's-partial',
+    'MANUAL_REVIEW':   's-manual',
+    'FAILED':          's-failed',
+  }[r.status] || 's-partial';
+
+  const statusLabel = {
+    'HIGH_CONFIDENCE': '✅ HIGH',
+    'PARTIAL':         '⚠ PARTIAL',
+    'MANUAL_REVIEW':   '🔍 REVIEW',
+    'FAILED':          '❌ FAILED',
+  }[r.status] || r.status;
+
+  const typeClass = r.object_type === 'TABLE' ? 'badge-table'
+                  : r.object_type === 'MATERIALIZED_VIEW' ? 'badge-mv'
+                  : 'badge-view';
+
+  const typeLabel = r.object_type === 'MATERIALIZED_VIEW' ? 'MATVIEW → PROC'
+                  : r.object_type;
+
+  const warnBadge = r.warnings.length > 0
+    ? `<span class="warn-count-badge">⚠ ${r.warnings.length} warning${r.warnings.length>1?'s':''}</span>` : '';
+
+  // Shorten names
+  const [srcSchema, srcName] = r.source_name.includes('.') ? r.source_name.split('.') : ['', r.source_name];
+  const [tgtSchema, tgtName] = r.target_name.includes('.') ? r.target_name.split('.') : ['', r.target_name];
+
+  card.innerHTML = `
+    <div class="obj-card-header" onclick="toggleCard(this.parentElement)">
+      <span class="obj-type-badge ${typeClass}">${typeLabel}</span>
+      <span class="obj-name">
+        <span class="obj-source">${escHtml(srcSchema)}.<strong>${escHtml(srcName)}</strong></span>
+        <span class="obj-arrow"> → </span>
+        <span class="obj-target">${escHtml(tgtSchema)}.<strong>${escHtml(tgtName)}</strong></span>
+      </span>
+      <div class="obj-meta">
+        ${warnBadge}
+        <span class="status-badge ${statusClass}">${statusLabel}</span>
+        <span class="conf-mini">${(r.confidence_score*100).toFixed(0)}%</span>
+        <span class="expand-icon">▼</span>
+      </div>
+    </div>
+    <div class="obj-card-body">
+      ${buildWarnings(r.warnings)}
+      ${buildRules(r.applied_rules)}
+      ${buildSqlOutput(r.output_sql, idx, type)}
+    </div>`;
+
+  return card;
+}
+
+function buildWarnings(warnings) {
+  if (!warnings || warnings.length === 0) return '';
+  const items = warnings.map(w => {
+    const cls  = w.level === 'ERROR' ? 'wi-err' : 'wi-info wi-warn';
+    const icon = w.level === 'ERROR' ? '❌' : '⚠️';
+    return `<div class="warning-item ${cls}">
+      <span class="warning-icon">${icon}</span>
+      <div class="warning-body">
+        <div class="warning-code">${escHtml(w.code)}</div>
+        <div class="warning-msg">${escHtml(w.message)}</div>
+        ${w.suggestion ? `<div class="warning-sugg">${escHtml(w.suggestion)}</div>` : ''}
+      </div>
+    </div>`;
+  }).join('');
+  return `<div class="warnings-list">${items}</div>`;
+}
+
+function buildRules(rules) {
+  if (!rules || rules.length === 0) return '';
+  const tags = rules.map(r => `<span class="rule-tag">${escHtml(r)}</span>`).join('');
+  return `<div class="rules-list">${tags}</div>`;
+}
+
+function buildSqlOutput(sql, idx, type) {
+  const uid = `sql-${type}-${idx}`;
+  const highlighted = highlightSQL(sql);
+  return `
+    <div class="sql-output-wrap">
+      <div class="sql-output-toolbar">
+        <span class="sql-output-label">Fabric T-SQL Output</span>
+        <button class="btn-copy" onclick="copySQL('${uid}', this)">📋 Copy</button>
+      </div>
+      <pre class="sql-output" id="${uid}">${highlighted}</pre>
+    </div>`;
+}
+
+// ── Syntax highlighter ───────────────────────────────────────────────────────
+function highlightSQL(sql) {
+  let s = escHtml(sql);
+
+  // Comments
+  s = s.replace(/(--[^\n]*)/g, '<span class="cmt">$1</span>');
+
+  // Placeholders ${...}
+  s = s.replace(/(\$\{[^}]+\})/g, '<span class="ph">$1</span>');
+
+  // String literals (after comments and placeholders)
+  s = s.replace(/'([^']*)'/g, "<span class=\"str\">'$1'</span>");
+
+  // Keywords
+  const kws = [
+    'CREATE','OR','ALTER','REPLACE','TABLE','VIEW','PROCEDURE','AS','SELECT',
+    'FROM','WHERE','JOIN','LEFT','RIGHT','INNER','OUTER','FULL','CROSS',
+    'ON','AND','OR','NOT','IN','EXISTS','BETWEEN','LIKE','IS','NULL',
+    'GROUP','BY','ORDER','HAVING','DISTINCT','UNION','ALL','CASE','WHEN',
+    'THEN','ELSE','END','IF','BEGIN','COMMIT','ROLLBACK','WITH','SET',
+    'INSERT','UPDATE','DELETE','DROP','INTO','VALUES',
+    'OBJECT_ID','IF NOT EXISTS','OBJECT_ID',
+    'DATETIME2','VARCHAR','NVARCHAR','BIGINT','INT','SMALLINT','DECIMAL',
+    'FLOAT','REAL','DATE','TIME','BIT','CHAR','VARBINARY',
+    'NOT NULL','DEFAULT','IDENTITY','PRIMARY KEY',
+    'CONVERT','CAST','ISNULL','COALESCE','DATEPART','DATEADD','DATEDIFF',
+    'DATETRUNC','GETDATE','FORMAT','HASHBYTES','STRING_AGG','WITHIN GROUP',
+  ];
+  const kwRe = new RegExp(
+    `\\b(${kws.map(k => k.replace(/\s+/g,'\\s+')).join('|')})\\b`,
+    'gi'
+  );
+  s = s.replace(kwRe, m => `<span class="kw">${m}</span>`);
+
+  // Numbers
+  s = s.replace(/\b(\d+(\.\d+)?)\b/g, '<span class="num">$1</span>');
+
+  return s;
+}
+
+// ── Card toggle ───────────────────────────────────────────────────────────────
+function toggleCard(card) {
+  card.classList.toggle('expanded');
+}
+
+// ── Copy SQL ──────────────────────────────────────────────────────────────────
+async function copySQL(id, btn) {
+  const pre = document.getElementById(id);
+  const text = pre ? pre.textContent : '';
+  await navigator.clipboard.writeText(text);
+  btn.textContent = '✅ Copied!';
+  btn.classList.add('copied');
+  setTimeout(() => { btn.textContent = '📋 Copy'; btn.classList.remove('copied'); }, 2000);
+}
+
+// ── Filter objects ────────────────────────────────────────────────────────────
+function filterObjects(type) {
+  const inputId = type === 'table' ? 'tableSearch' : 'viewSearch';
+  const listId  = type === 'table' ? 'tableList'   : 'viewList';
+  const q = document.getElementById(inputId).value.toLowerCase();
+  document.querySelectorAll(`#${listId} .obj-card`).forEach(card => {
+    card.style.display = card.dataset.name.includes(q) ? '' : 'none';
+  });
+}
+
+// ── Error / toast helpers ─────────────────────────────────────────────────────
+function showError(msg) {
+  const el = document.getElementById('errorBanner');
+  el.textContent = '⚠ ' + msg;
+  el.classList.add('show');
+}
+function hideError() {
+  document.getElementById('errorBanner').classList.remove('show');
+}
+
+function showToast(msg, type='success') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+// ── Utils ─────────────────────────────────────────────────────────────────────
+function escHtml(s) {
+  return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function escAttr(s) {
+  return (s||'').replace(/'/g,"\\'").replace(/\\/g,'\\\\');
+}
+</script>
+</body>
+</html>

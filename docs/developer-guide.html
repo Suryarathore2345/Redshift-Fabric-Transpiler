@@ -1,0 +1,1268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Redshift → Fabric · Developer Guide</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600&family=Syne:wght@600;700;800&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #09090b;
+  --bg2:      #0f1012;
+  --bg3:      #141618;
+  --panel:    #111316;
+  --border:   #1e2228;
+  --border2:  #272d36;
+  --text:     #e4e7ec;
+  --text2:    #8c95a3;
+  --text3:    #4d5562;
+  --accent:   #00d4ff;
+  --adim:     rgba(0,212,255,.12);
+  --purple:   #a78bfa;
+  --pdim:     rgba(167,139,250,.12);
+  --green:    #34d399;
+  --gdim:     rgba(52,211,153,.12);
+  --amber:    #fbbf24;
+  --adim2:    rgba(251,191,36,.12);
+  --red:      #f87171;
+  --rdim:     rgba(248,113,113,.12);
+  --mono:     'JetBrains Mono', monospace;
+  --display:  'Syne', sans-serif;
+  --body:     'Inter', sans-serif;
+  --r:        6px;
+  --rl:       10px;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; font-size: 14px; }
+body { background: var(--bg); color: var(--text); font-family: var(--body); line-height: 1.65; }
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+/* ── Layout shell ── */
+.shell { display: flex; min-height: 100vh; }
+
+/* ── Sidebar ── */
+.sidebar {
+  width: 260px; flex-shrink: 0;
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  position: fixed; top: 0; left: 0; bottom: 0;
+  overflow-y: auto; z-index: 50;
+  display: flex; flex-direction: column;
+}
+.sidebar-logo {
+  padding: 22px 20px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-logo-mark {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; border-radius: var(--r);
+  background: linear-gradient(135deg,var(--accent),var(--purple));
+  font-family: var(--mono); font-weight: 700; font-size: 11px; color: #000;
+  margin-bottom: 10px;
+}
+.sidebar-logo h2 {
+  font-family: var(--display); font-size: 14px; font-weight: 700;
+  line-height: 1.2; color: var(--text);
+}
+.sidebar-logo p { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 3px; }
+
+.nav-section { padding: 16px 12px 6px; }
+.nav-section-label {
+  font-family: var(--mono); font-size: 9px; letter-spacing: .1em;
+  color: var(--text3); text-transform: uppercase; padding: 0 8px; margin-bottom: 4px;
+}
+.nav-link {
+  display: flex; align-items: center; gap: 8px;
+  padding: 7px 10px; border-radius: var(--r);
+  font-size: 13px; color: var(--text2);
+  text-decoration: none; transition: all .15s; cursor: pointer;
+  border: none; background: none; width: 100%; text-align: left;
+}
+.nav-link:hover { background: var(--bg3); color: var(--text); }
+.nav-link.active { background: var(--adim); color: var(--accent); }
+.nav-icon { width: 16px; text-align: center; flex-shrink: 0; font-size: 13px; }
+.nav-badge {
+  margin-left: auto; font-family: var(--mono); font-size: 9px;
+  padding: 1px 6px; border-radius: 10px;
+  background: var(--bg3); color: var(--text3); border: 1px solid var(--border2);
+}
+
+/* ── Main content ── */
+.main { margin-left: 260px; flex: 1; }
+.content { max-width: 900px; padding: 48px 40px; margin: 0 auto; }
+
+/* ── Section ── */
+.section { display: none; }
+.section.active { display: block; }
+
+/* ── Section header ── */
+.section-hero {
+  margin-bottom: 36px;
+  padding-bottom: 24px;
+  border-bottom: 1px solid var(--border);
+}
+.section-eyebrow {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .1em;
+  color: var(--accent); text-transform: uppercase; margin-bottom: 10px;
+}
+.section-hero h1 {
+  font-family: var(--display); font-size: 30px; font-weight: 800;
+  letter-spacing: -1px; line-height: 1.15; margin-bottom: 10px;
+}
+.section-hero p { color: var(--text2); font-size: 15px; max-width: 620px; line-height: 1.7; }
+
+/* ── Headings ── */
+h2 { font-family: var(--display); font-size: 20px; font-weight: 700; margin: 36px 0 14px; color: var(--text); letter-spacing: -.3px; }
+h3 { font-family: var(--body); font-size: 15px; font-weight: 600; margin: 24px 0 10px; color: var(--text); }
+h4 { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--text2); margin: 18px 0 8px; text-transform: uppercase; letter-spacing: .06em; }
+p  { color: var(--text2); margin-bottom: 14px; line-height: 1.7; }
+
+/* ── Code blocks ── */
+pre, code {
+  font-family: var(--mono);
+}
+code {
+  background: var(--bg3); border: 1px solid var(--border);
+  padding: 1px 6px; border-radius: 4px;
+  font-size: 12px; color: var(--accent);
+}
+pre {
+  background: #060709;
+  border: 1px solid var(--border);
+  border-radius: var(--rl);
+  padding: 20px 22px;
+  overflow-x: auto;
+  margin: 12px 0 20px;
+  font-size: 12.5px;
+  line-height: 1.75;
+  color: #b0bec5;
+  position: relative;
+}
+pre code { background: none; border: none; padding: 0; color: inherit; font-size: inherit; }
+.copy-btn {
+  position: absolute; top: 10px; right: 10px;
+  font-family: var(--mono); font-size: 10px;
+  padding: 3px 9px; border-radius: 4px;
+  background: var(--bg3); border: 1px solid var(--border2);
+  color: var(--text3); cursor: pointer; transition: all .2s;
+}
+.copy-btn:hover { color: var(--accent); border-color: var(--accent); }
+.copy-btn.copied { color: var(--green); border-color: var(--green); }
+
+/* Syntax colours */
+.kw  { color: #818cf8; }
+.fn  { color: #38bdf8; }
+.str { color: #86efac; }
+.cm  { color: #374151; font-style: italic; }
+.ph  { color: #c084fc; }
+.num { color: #fcd34d; }
+.py-kw  { color: #f472b6; }
+.py-str { color: #86efac; }
+.py-cm  { color: #374151; font-style: italic; }
+.py-fn  { color: #38bdf8; }
+
+/* ── Info cards ── */
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--rl);
+  padding: 20px 22px;
+  margin: 14px 0;
+}
+.card-accent  { border-left: 3px solid var(--accent);  background: var(--adim);  }
+.card-green   { border-left: 3px solid var(--green);   background: var(--gdim);  }
+.card-amber   { border-left: 3px solid var(--amber);   background: var(--adim2); }
+.card-red     { border-left: 3px solid var(--red);     background: var(--rdim);  }
+.card-purple  { border-left: 3px solid var(--purple);  background: var(--pdim);  }
+.card-title {
+  font-family: var(--mono); font-size: 11px; font-weight: 600;
+  letter-spacing: .06em; text-transform: uppercase; margin-bottom: 8px;
+}
+.card-accent .card-title  { color: var(--accent); }
+.card-green .card-title   { color: var(--green);  }
+.card-amber .card-title   { color: var(--amber);  }
+.card-red .card-title     { color: var(--red);    }
+.card-purple .card-title  { color: var(--purple); }
+
+/* ── Tables ── */
+table { width: 100%; border-collapse: collapse; margin: 14px 0 20px; font-size: 13px; }
+th {
+  font-family: var(--mono); font-size: 10px; letter-spacing: .07em;
+  text-transform: uppercase; color: var(--text3);
+  padding: 8px 12px; border-bottom: 2px solid var(--border2);
+  text-align: left;
+}
+td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text2); vertical-align: top; }
+tr:last-child td { border-bottom: none; }
+tr:hover td { background: var(--bg3); }
+td code { font-size: 11px; }
+
+/* ── Step list ── */
+.steps { list-style: none; counter-reset: step; display: flex; flex-direction: column; gap: 12px; margin: 14px 0 22px; }
+.steps li {
+  counter-increment: step;
+  display: flex; gap: 14px;
+  padding: 16px 18px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: var(--rl);
+}
+.steps li::before {
+  content: counter(step);
+  display: flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; border-radius: 50%; flex-shrink: 0;
+  background: linear-gradient(135deg,var(--accent),var(--purple));
+  color: #000; font-family: var(--mono); font-size: 12px; font-weight: 700;
+}
+.step-body { flex: 1; }
+.step-body strong { display: block; color: var(--text); margin-bottom: 4px; font-size: 14px; }
+.step-body span { color: var(--text2); font-size: 13px; }
+
+/* ── File tree ── */
+.tree {
+  font-family: var(--mono); font-size: 12px; line-height: 2;
+  background: #060709; border: 1px solid var(--border);
+  border-radius: var(--rl); padding: 20px 22px;
+  margin: 14px 0 20px; overflow-x: auto;
+}
+.tree-dir   { color: var(--accent); }
+.tree-file  { color: var(--text2); }
+.tree-tag   {
+  font-size: 10px; padding: 1px 7px; border-radius: 3px;
+  margin-left: 10px; vertical-align: middle;
+}
+.tag-hot    { background: rgba(248,113,113,.2); color: var(--red);   border: 1px solid rgba(248,113,113,.3); }
+.tag-key    { background: var(--adim);          color: var(--accent); border: 1px solid rgba(0,212,255,.2); }
+.tag-new    { background: var(--gdim);          color: var(--green);  border: 1px solid rgba(52,211,153,.2); }
+.tag-test   { background: var(--pdim);          color: var(--purple); border: 1px solid rgba(167,139,250,.2); }
+.tree-desc  { color: var(--text3); font-size: 11px; margin-left: 8px; }
+
+/* ── Mapping editor (visual) ── */
+.map-grid {
+  display: grid; grid-template-columns: 1fr auto 1fr;
+  gap: 0; margin: 14px 0 22px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--rl); overflow: hidden;
+}
+.map-col { padding: 16px 18px; }
+.map-col:nth-child(2) {
+  display: flex; align-items: center; justify-content: center;
+  background: var(--bg3); border-left: 1px solid var(--border); border-right: 1px solid var(--border);
+  font-size: 18px; padding: 0 16px; color: var(--accent);
+}
+.map-header {
+  font-family: var(--mono); font-size: 10px; color: var(--text3);
+  letter-spacing: .07em; text-transform: uppercase; margin-bottom: 10px;
+}
+.map-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 6px 0; border-bottom: 1px solid var(--border);
+  font-family: var(--mono); font-size: 12px;
+}
+.map-row:last-child { border-bottom: none; }
+.map-schema { color: var(--text); }
+.map-placeholder { color: var(--purple); }
+
+/* ── Inline badge ── */
+.badge {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-family: var(--mono); font-size: 10px; font-weight: 600;
+  padding: 2px 8px; border-radius: 4px; letter-spacing: .04em;
+}
+.badge-blue   { background: var(--adim);  color: var(--accent); border: 1px solid rgba(0,212,255,.2); }
+.badge-green  { background: var(--gdim);  color: var(--green);  border: 1px solid rgba(52,211,153,.2); }
+.badge-amber  { background: var(--adim2); color: var(--amber);  border: 1px solid rgba(251,191,36,.2); }
+.badge-purple { background: var(--pdim);  color: var(--purple); border: 1px solid rgba(167,139,250,.2); }
+.badge-red    { background: var(--rdim);  color: var(--red);    border: 1px solid rgba(248,113,113,.2); }
+
+/* ── Divider ── */
+hr { border: none; border-top: 1px solid var(--border); margin: 32px 0; }
+
+/* ── Checklist ── */
+.checklist { list-style: none; display: flex; flex-direction: column; gap: 8px; margin: 10px 0 20px; }
+.checklist li {
+  display: flex; gap: 10px; align-items: flex-start;
+  color: var(--text2); font-size: 13px; line-height: 1.5;
+}
+.checklist li::before { content: '✓'; color: var(--green); font-weight: 700; flex-shrink: 0; }
+
+/* ── Pipeline flow ── */
+.pipeline {
+  display: flex; flex-direction: column; gap: 0;
+  margin: 14px 0 22px; position: relative;
+}
+.pipeline::before {
+  content: ''; position: absolute; left: 21px; top: 30px; bottom: 30px;
+  width: 2px; background: linear-gradient(var(--accent), var(--purple));
+  border-radius: 1px;
+}
+.pipe-step {
+  display: flex; gap: 14px; align-items: flex-start;
+  padding: 14px 18px; position: relative;
+}
+.pipe-num {
+  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  color: #000; z-index: 1;
+}
+.pipe-content { flex: 1; }
+.pipe-name { font-weight: 600; color: var(--text); font-size: 14px; margin-bottom: 3px; }
+.pipe-file { font-family: var(--mono); font-size: 11px; color: var(--accent); margin-bottom: 4px; }
+.pipe-desc { font-size: 13px; color: var(--text2); }
+
+/* Gradient steps */
+.pipe-step:nth-child(1) .pipe-num { background: #00d4ff; }
+.pipe-step:nth-child(2) .pipe-num { background: #00bce0; }
+.pipe-step:nth-child(3) .pipe-num { background: #4f9fcf; }
+.pipe-step:nth-child(4) .pipe-num { background: #7e83be; }
+.pipe-step:nth-child(5) .pipe-num { background: #9b70b8; }
+.pipe-step:nth-child(6) .pipe-num { background: #a78bfa; }
+.pipe-step:nth-child(7) .pipe-num { background: #a78bfa; }
+
+/* ── Function reference grid ── */
+.fn-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 10px; margin: 14px 0 22px;
+}
+@media (max-width: 700px) { .fn-grid { grid-template-columns: 1fr; } }
+.fn-card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--r); padding: 14px 16px;
+  transition: border-color .2s;
+}
+.fn-card:hover { border-color: var(--border2); }
+.fn-card-from { font-family: var(--mono); font-size: 12px; color: var(--amber); margin-bottom: 4px; }
+.fn-card-to   { font-family: var(--mono); font-size: 12px; color: var(--green); margin-bottom: 6px; }
+.fn-card-note { font-size: 11px; color: var(--text3); }
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .sidebar { width: 220px; }
+  .main { margin-left: 220px; }
+  .content { padding: 32px 20px; }
+  .fn-grid { grid-template-columns: 1fr; }
+  .map-grid { grid-template-columns: 1fr; }
+  .map-col:nth-child(2) { display: none; }
+}
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+<!-- ═══════════════════════════ SIDEBAR ═══════════════════════════════ -->
+<nav class="sidebar">
+  <div class="sidebar-logo">
+    <div class="sidebar-logo-mark">R→F</div>
+    <h2>Redshift → Fabric</h2>
+    <p>Developer Guide · v8</p>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Getting Started</div>
+    <button class="nav-link active" onclick="show('start')"><span class="nav-icon">🚀</span> Quick Start</button>
+    <button class="nav-link" onclick="show('structure')"><span class="nav-icon">🗂</span> Project Structure</button>
+    <button class="nav-link" onclick="show('pipeline')"><span class="nav-icon">⚙️</span> How It Works</button>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Configuration</div>
+    <button class="nav-link" onclick="show('schema-map')"><span class="nav-icon">🗺</span> Schema Mapping <span class="nav-badge">HOT</span></button>
+    <button class="nav-link" onclick="show('placeholders')"><span class="nav-icon">🏷</span> Placeholders</button>
+    <button class="nav-link" onclick="show('settings')"><span class="nav-icon">⚙</span> All Settings</button>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Conversion Rules</div>
+    <button class="nav-link" onclick="show('datatypes')"><span class="nav-icon">📐</span> Datatype Mapping</button>
+    <button class="nav-link" onclick="show('functions')"><span class="nav-icon">𝑓</span> Function Mapping</button>
+    <button class="nav-link" onclick="show('syntax')"><span class="nav-icon">✏️</span> Syntax Rules</button>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Extending</div>
+    <button class="nav-link" onclick="show('add-schema')"><span class="nav-icon">➕</span> Add New Schema <span class="nav-badge">HOT</span></button>
+    <button class="nav-link" onclick="show('add-rule')"><span class="nav-icon">📝</span> Add New Rule</button>
+    <button class="nav-link" onclick="show('add-datatype')"><span class="nav-icon">🔤</span> Add New Datatype</button>
+  </div>
+
+  <div class="nav-section">
+    <div class="nav-section-label">Operations</div>
+    <button class="nav-link" onclick="show('cli')"><span class="nav-icon">💻</span> CLI Commands</button>
+    <button class="nav-link" onclick="show('api')"><span class="nav-icon">🔌</span> REST API</button>
+    <button class="nav-link" onclick="show('testing')"><span class="nav-icon">🧪</span> Running Tests</button>
+    <button class="nav-link" onclick="show('troubleshoot')"><span class="nav-icon">🔧</span> Troubleshooting</button>
+  </div>
+</nav>
+
+<!-- ═══════════════════════════ MAIN ══════════════════════════════════ -->
+<main class="main">
+<div class="content">
+
+
+<!-- ─────────────── QUICK START ─────────────── -->
+<section class="section active" id="s-start">
+  <div class="section-hero">
+    <div class="section-eyebrow">Getting Started</div>
+    <h1>Quick Start Guide</h1>
+    <p>Everything you need to get the converter running on Windows in under 5 minutes.</p>
+  </div>
+
+  <h2>First-time Setup</h2>
+  <ol class="steps">
+    <li>
+      <div class="step-body">
+        <strong>Open PowerShell in the project folder</strong>
+        <span>Navigate to where you unzipped the project.</span>
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        <strong>Create the virtual environment</strong>
+        <span>Only needed once per machine.</span>
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        <strong>Activate &amp; install dependencies</strong>
+        <span>Installs all required Python packages into the venv.</span>
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        <strong>Start the server</strong>
+        <span>Launches the API + serves the web UI.</span>
+      </div>
+    </li>
+    <li>
+      <div class="step-body">
+        <strong>Open the UI in your browser</strong>
+        <span>The frontend and API docs are both served from the same port.</span>
+      </div>
+    </li>
+  </ol>
+
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="cm"># Step 1 — navigate to project root</span>
+cd C:\path\to\redshift_to_fabric
+
+<span class="cm"># Step 2 — create virtual environment (once only)</span>
+python -m venv .venv
+
+<span class="cm"># If Activate.ps1 is blocked, run this first:</span>
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+
+<span class="cm"># Step 3 — activate venv</span>
+.\.venv\Scripts\Activate.ps1
+
+<span class="cm"># Step 4 — install dependencies (once only)</span>
+python -m pip install -r requirements.txt
+
+<span class="cm"># Step 5 — start the server</span>
+python run.py server</code></pre>
+
+  <div class="card card-green">
+    <div class="card-title">✅ Then open in browser</div>
+    <p style="margin:0">
+      <strong>UI &nbsp;→</strong> <code>http://localhost:8000</code><br>
+      <strong>API Docs →</strong> <code>http://localhost:8000/docs</code>
+    </p>
+  </div>
+
+  <h2>Every Subsequent Time</h2>
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code>.\.venv\Scripts\Activate.ps1
+python run.py server</code></pre>
+
+  <h2>Other Useful Commands</h2>
+  <table>
+    <tr><th>Command</th><th>What it does</th></tr>
+    <tr><td><code>python run.py demo</code></td><td>Run a built-in conversion demo — no files needed</td></tr>
+    <tr><td><code>python run.py convert --file my.sql</code></td><td>Convert a DDL file from the terminal</td></tr>
+    <tr><td><code>python run.py test</code></td><td>Run all 74 unit tests</td></tr>
+    <tr><td><code>python run.py validate --file out.sql</code></td><td>Check converted SQL for residual Redshift syntax</td></tr>
+  </table>
+</section>
+
+
+<!-- ─────────────── PROJECT STRUCTURE ─────────────── -->
+<section class="section" id="s-structure">
+  <div class="section-hero">
+    <div class="section-eyebrow">Project Structure</div>
+    <h1>What Lives Where</h1>
+    <p>Every file in the project and what it's responsible for — so you always know where to look.</p>
+  </div>
+
+  <div class="tree">
+<span class="tree-dir">redshift_to_fabric/</span>
+│
+├── <span class="tree-file">run.py</span>                          <span class="tree-tag tag-hot">ENTRY POINT</span><span class="tree-desc">  CLI: convert / validate / server / test / demo</span>
+├── <span class="tree-file">requirements.txt</span>                <span class="tree-desc">  Python package dependencies</span>
+├── <span class="tree-file">.env.example</span>                    <span class="tree-desc">  Copy to .env and edit for local config</span>
+│
+├── <span class="tree-dir">app/</span>
+│   ├── <span class="tree-dir">core/</span>
+│   │   ├── <span class="tree-file">settings.py</span>             <span class="tree-tag tag-hot">CONFIGURE HERE</span><span class="tree-desc">  Schema mappings, placeholders, paths</span>
+│   │   ├── <span class="tree-file">rules.py</span>                <span class="tree-tag tag-key">RULES</span><span class="tree-desc">  All datatype + function mappings</span>
+│   │   ├── <span class="tree-file">pipeline.py</span>             <span class="tree-desc">  Master orchestrator — calls parser → transformer → validator</span>
+│   │   └── <span class="tree-file">models.py</span>               <span class="tree-desc">  IR dataclasses: TableIR, ViewIR, ConversionResult</span>
+│   │
+│   ├── <span class="tree-dir">parser/</span>
+│   │   ├── <span class="tree-file">splitter.py</span>             <span class="tree-desc">  Splits multi-statement SQL into individual DDLs</span>
+│   │   ├── <span class="tree-file">table_parser.py</span>         <span class="tree-desc">  CREATE TABLE → TableIR (handles ENCODE, SORTKEY etc.)</span>
+│   │   └── <span class="tree-file">view_parser.py</span>          <span class="tree-desc">  CREATE VIEW → ViewIR (extracts body, CTEs, schema refs)</span>
+│   │
+│   ├── <span class="tree-dir">transformer/</span>
+│   │   ├── <span class="tree-file">view_transformer.py</span>     <span class="tree-tag tag-hot">MAIN LOGIC</span><span class="tree-desc">  25+ transformation functions for views</span>
+│   │   └── <span class="tree-file">table_generator.py</span>      <span class="tree-desc">  TableIR → Fabric T-SQL CREATE TABLE with inline comments</span>
+│   │
+│   ├── <span class="tree-dir">validator/</span>
+│   │   └── <span class="tree-file">validator.py</span>            <span class="tree-desc">  Post-conversion check for residual Redshift syntax</span>
+│   │
+│   ├── <span class="tree-dir">output/</span>
+│   │   └── <span class="tree-file">generator.py</span>            <span class="tree-desc">  Writes .sql + .md + .json output files to disk</span>
+│   │
+│   ├── <span class="tree-dir">reporter/</span>
+│   │   └── <span class="tree-file">reporter.py</span>             <span class="tree-desc">  Builds ConversionReport objects (stats, warnings)</span>
+│   │
+│   └── <span class="tree-dir">api/</span>
+│       ├── <span class="tree-file">app.py</span>                  <span class="tree-desc">  FastAPI application factory + frontend mounting</span>
+│       ├── <span class="tree-file">schemas.py</span>              <span class="tree-desc">  Pydantic request/response models</span>
+│       └── <span class="tree-dir">routes/</span>
+│           ├── <span class="tree-file">convert.py</span>          <span class="tree-desc">  POST /convert/sql, /convert/file, /convert/validate</span>
+│           ├── <span class="tree-file">reports.py</span>          <span class="tree-desc">  GET /reports/ — list and fetch conversion reports</span>
+│           └── <span class="tree-file">health.py</span>           <span class="tree-desc">  GET /health — API status check</span>
+│
+├── <span class="tree-dir">frontend/</span>
+│   └── <span class="tree-file">index.html</span>              <span class="tree-tag tag-new">UI</span><span class="tree-desc">  Single-file web frontend (served at /)</span>
+│
+├── <span class="tree-dir">tests/</span>
+│   ├── <span class="tree-dir">unit/</span>                       <span class="tree-tag tag-test">74 TESTS</span>
+│   │   ├── <span class="tree-file">test_splitter.py</span>
+│   │   ├── <span class="tree-file">test_table_parser.py</span>
+│   │   ├── <span class="tree-file">test_table_generator.py</span>
+│   │   └── <span class="tree-file">test_view_transformer.py</span>
+│   ├── <span class="tree-dir">integration/</span>
+│   │   └── <span class="tree-file">test_pipeline_integration.py</span>
+│   └── <span class="tree-dir">fixtures/input/</span>
+│       ├── <span class="tree-file">bi_alefdw_tables.sql</span>    <span class="tree-desc">  Real 29-table Redshift DDL (test input)</span>
+│       └── <span class="tree-file">sample_views.sql</span>        <span class="tree-desc">  Sample view fixtures</span>
+│
+└── <span class="tree-dir">data/</span>                           <span class="tree-desc">  Runtime data — auto-created, git-ignored</span>
+    ├── <span class="tree-dir">outputs/</span>                    <span class="tree-desc">  Generated Fabric T-SQL files</span>
+    ├── <span class="tree-dir">reports/</span>                    <span class="tree-desc">  Markdown + JSON conversion reports</span>
+    ├── <span class="tree-dir">uploads/</span>                    <span class="tree-desc">  Uploaded SQL files from the UI</span>
+    └── <span class="tree-dir">logs/</span>                       <span class="tree-desc">  Structured JSON logs</span>
+  </div>
+</section>
+
+
+<!-- ─────────────── HOW IT WORKS ─────────────── -->
+<section class="section" id="s-pipeline">
+  <div class="section-hero">
+    <div class="section-eyebrow">Architecture</div>
+    <h1>How It Works</h1>
+    <p>Every conversion flows through the same 7-stage pipeline regardless of whether it came from the UI, CLI, or API.</p>
+  </div>
+
+  <div class="pipeline">
+    <div class="pipe-step">
+      <div class="pipe-num">1</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Split &amp; Classify</div>
+        <div class="pipe-file">app/parser/splitter.py</div>
+        <div class="pipe-desc">Raw SQL text is split into individual statements at semicolons (delimiter-aware, handles quotes and block comments). Each statement is classified as TABLE, VIEW, MATERIALIZED_VIEW, or SCHEMA.</div>
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">2</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Parse → Intermediate Representation (IR)</div>
+        <div class="pipe-file">app/parser/table_parser.py &nbsp;/&nbsp; view_parser.py</div>
+        <div class="pipe-desc">Each statement is parsed into a structured IR object (<code>TableIR</code> or <code>ViewIR</code>). Redshift-specific metadata is extracted: ENCODE, DISTKEY, SORTKEY, WITH NO SCHEMA BINDING, etc.</div>
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">3</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Transform</div>
+        <div class="pipe-file">app/transformer/view_transformer.py &nbsp;/&nbsp; table_generator.py</div>
+        <div class="pipe-desc">25+ transformation functions run in a fixed pipeline order on the IR. Schema refs are replaced with placeholders, functions are mapped, GROUP BY ordinals expanded, CAST → CONVERT, etc.</div>
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">4</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Validate</div>
+        <div class="pipe-file">app/validator/validator.py</div>
+        <div class="pipe-desc">Output SQL is scanned for residual Redshift syntax (ENCODE, DISTSTYLE, BOOLEAN type, IS TRUE/FALSE, etc.). Each find reduces the confidence score and adds a warning.</div>
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">5</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Score &amp; Report</div>
+        <div class="pipe-file">app/reporter/reporter.py</div>
+        <div class="pipe-desc">Each object receives a confidence score (0–100%). Status is HIGH_CONFIDENCE ≥90%, PARTIAL ≥65%, MANUAL_REVIEW &lt;65%, FAILED on parse error.</div>
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">6</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Write Outputs</div>
+        <div class="pipe-file">app/output/generator.py</div>
+        <div class="pipe-desc">Converted SQL is written to <code>data/outputs/&lt;job_id&gt;/</code>. A Markdown report and JSON summary are written to <code>data/reports/&lt;job_id&gt;/</code>.</div>
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">7</div>
+      <div class="pipe-content">
+        <div class="pipe-name">Return / Display</div>
+        <div class="pipe-file">app/api/routes/convert.py &nbsp;/&nbsp; frontend/index.html</div>
+        <div class="pipe-desc">Results are returned as JSON to the API caller. The frontend renders each object as an expandable card with syntax-highlighted SQL, warnings, and download links.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ─────────────── SCHEMA MAPPING ─────────────── -->
+<section class="section" id="s-schema-map">
+  <div class="section-hero">
+    <div class="section-eyebrow">Configuration · Most Common Task</div>
+    <h1>Schema Mapping</h1>
+    <p>This is the single most common thing you'll need to change when working with a new project or database. Everything is in one place.</p>
+  </div>
+
+  <div class="card card-accent">
+    <div class="card-title">📍 Where to Edit</div>
+    <p style="margin:0">File: <code>app/core/settings.py</code> &nbsp;→&nbsp; look for <code>schema_placeholder_map</code> around <strong>line 57</strong></p>
+  </div>
+
+  <h2>Current Default Mapping</h2>
+  <p>These are the schemas the converter knows about out of the box. Keys are always <strong>lowercase</strong>.</p>
+
+  <div class="map-grid">
+    <div class="map-col">
+      <div class="map-header">Source schema (Redshift)</div>
+      <div class="map-row"><span class="map-schema">bi_alefdw</span></div>
+      <div class="map-row"><span class="map-schema">bi_alefdw_dev</span></div>
+      <div class="map-row"><span class="map-schema">alefdw</span></div>
+      <div class="map-row"><span class="map-schema">alefdw_dev</span></div>
+    </div>
+    <div class="map-col">→</div>
+    <div class="map-col">
+      <div class="map-header">Fabric placeholder</div>
+      <div class="map-row"><span class="map-placeholder">${rs_bi_alefdw}</span></div>
+      <div class="map-row"><span class="map-placeholder">${rs_bi_alefdw}</span></div>
+      <div class="map-row"><span class="map-placeholder">${rs_alefdw}</span></div>
+      <div class="map-row"><span class="map-placeholder">${rs_alefdw}</span></div>
+    </div>
+  </div>
+
+  <h2>Adding Your Own Schemas</h2>
+  <p>Open <code>app/core/settings.py</code> and add entries to <code>schema_placeholder_map</code>. Example for the scenario with <code>reporting</code>, <code>master</code>, <code>sales</code>, <code>product</code> schemas:</p>
+
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="cm"># app/core/settings.py — around line 57</span>
+
+schema_placeholder_map: dict[str, str] = {
+
+    <span class="cm"># ── Existing BI schemas ────────────────────────</span>
+    <span class="py-str">"bi_alefdw"</span>:     <span class="py-str">"${rs_bi_alefdw}"</span>,
+    <span class="py-str">"bi_alefdw_dev"</span>: <span class="py-str">"${rs_bi_alefdw}"</span>,
+    <span class="py-str">"alefdw"</span>:        <span class="py-str">"${rs_alefdw}"</span>,
+    <span class="py-str">"alefdw_dev"</span>:    <span class="py-str">"${rs_alefdw}"</span>,
+
+    <span class="cm"># ── YOUR NEW SCHEMAS ───────────────────────────</span>
+    <span class="cm"># Format:  "source_schema_name": "${placeholder}"</span>
+    <span class="cm"># Keys must be lowercase</span>
+
+    <span class="py-str">"master"</span>:    <span class="py-str">"${rs_master}"</span>,
+    <span class="py-str">"sales"</span>:     <span class="py-str">"${rs_sales}"</span>,
+    <span class="py-str">"product"</span>:   <span class="py-str">"${rs_product}"</span>,
+    <span class="py-str">"reporting"</span>: <span class="py-str">"${rs_reporting}"</span>,
+}</code></pre>
+
+  <h2>Also Set the Output Schema</h2>
+  <p>The output schema is the schema written into <code>CREATE OR ALTER VIEW <strong>HERE</strong>.view_name</code>. Change it on <strong>line 65</strong>:</p>
+
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="cm"># The schema placeholder for the VIEW being created (output side)</span>
+output_schema_placeholder: str = <span class="py-str">"${os_reporting}"</span>  <span class="cm"># was ${os_bi_alefdw}</span></code></pre>
+
+  <h2>Result</h2>
+  <p>After adding the mappings, this Redshift input:</p>
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="kw">CREATE OR REPLACE VIEW</span> reporting.vw_customer_orders <span class="kw">AS</span>
+<span class="kw">SELECT</span> c.customer_id, o.order_id, p.product_name
+<span class="kw">FROM</span> master.customer c
+<span class="kw">INNER JOIN</span> sales.orders o <span class="kw">ON</span> c.customer_id = o.customer_id
+<span class="kw">INNER JOIN</span> product.products p <span class="kw">ON</span> o.product_id = p.product_id;</code></pre>
+
+  <p>Becomes this Fabric T-SQL output:</p>
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="kw">CREATE OR ALTER VIEW</span> <span class="ph">${os_reporting}</span>.vw_customer_orders <span class="kw">AS</span>
+<span class="kw">SELECT</span> c.customer_id, o.order_id, p.product_name
+<span class="kw">FROM</span> <span class="ph">${rs_master}</span>.customer c
+<span class="kw">INNER JOIN</span> <span class="ph">${rs_sales}</span>.orders o <span class="kw">ON</span> c.customer_id = o.customer_id
+<span class="kw">INNER JOIN</span> <span class="ph">${rs_product}</span>.products p <span class="kw">ON</span> o.product_id = p.product_id;</code></pre>
+
+  <div class="card card-amber">
+    <div class="card-title">⚠ Rules to Remember</div>
+    <ul class="checklist">
+      <li>Keys in <code>schema_placeholder_map</code> must always be <strong>lowercase</strong> — <code>"Master"</code> won't match, <code>"master"</code> will.</li>
+      <li>Multiple source schemas can map to the <strong>same placeholder</strong> if they're the same logical database (e.g. dev and prod both → <code>${rs_bi_alefdw}</code>).</li>
+      <li>Restart the server after editing <code>settings.py</code> — settings are loaded once at startup.</li>
+    </ul>
+  </div>
+</section>
+
+
+<!-- ─────────────── PLACEHOLDERS ─────────────── -->
+<section class="section" id="s-placeholders">
+  <div class="section-hero">
+    <div class="section-eyebrow">Configuration</div>
+    <h1>Placeholders Explained</h1>
+    <p>Placeholders are the <code>${...}</code> tokens that appear in generated Fabric T-SQL. They are resolved at deploy time by Flyway or your CI/CD pipeline.</p>
+  </div>
+
+  <h2>The Three Placeholder Types</h2>
+  <table>
+    <tr><th>Placeholder</th><th>Used In</th><th>Setting</th><th>Meaning</th></tr>
+    <tr>
+      <td><code class="ph">${schema}</code></td>
+      <td>CREATE TABLE</td>
+      <td><code>flyway_schema_placeholder</code></td>
+      <td>The target schema for all tables — resolved by Flyway at migration time</td>
+    </tr>
+    <tr>
+      <td><code class="ph">${os_bi_alefdw}</code></td>
+      <td>CREATE OR ALTER VIEW</td>
+      <td><code>output_schema_placeholder</code></td>
+      <td>The output schema where views live in Fabric — your warehouse schema</td>
+    </tr>
+    <tr>
+      <td><code class="ph">${rs_bi_alefdw}</code></td>
+      <td>Inside VIEW bodies (FROM, JOIN)</td>
+      <td><code>schema_placeholder_map</code></td>
+      <td>Source read schema — where the underlying tables are in Fabric</td>
+    </tr>
+    <tr>
+      <td><code class="ph">${rs_alefdw}</code></td>
+      <td>Inside VIEW bodies (JOIN on DW tables)</td>
+      <td><code>schema_placeholder_map</code></td>
+      <td>DW read schema — a second source database in Fabric</td>
+    </tr>
+  </table>
+
+  <h2>Naming Convention</h2>
+  <table>
+    <tr><th>Prefix</th><th>Meaning</th><th>Example</th></tr>
+    <tr><td><code>rs_</code></td><td>Read Schema — source tables you query</td><td><code>${rs_bi_alefdw}</code></td></tr>
+    <tr><td><code>os_</code></td><td>Output Schema — where you write views/procs</td><td><code>${os_bi_alefdw}</code></td></tr>
+    <tr><td>(none)</td><td>Generic Flyway schema</td><td><code>${schema}</code></td></tr>
+  </table>
+
+  <h2>Example Output</h2>
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="cm">-- TABLE DDL (uses ${schema})</span>
+<span class="kw">IF OBJECT_ID</span>(<span class="str">'${schema}.student_login'</span>, <span class="str">'U'</span>) <span class="kw">IS NULL</span>
+<span class="kw">BEGIN</span>
+    <span class="kw">CREATE TABLE</span> <span class="ph">${schema}</span>.student_login (
+        login_date_dw_id  <span class="kw">BIGINT</span>,
+        school_dw_id      <span class="kw">BIGINT</span>
+    );
+<span class="kw">END</span>;
+
+<span class="cm">-- VIEW DDL (uses ${os_bi_alefdw} for the view, ${rs_bi_alefdw} for source)</span>
+<span class="kw">CREATE OR ALTER VIEW</span> <span class="ph">${os_bi_alefdw}</span>.v_student_summary <span class="kw">AS</span>
+<span class="kw">SELECT</span> * <span class="kw">FROM</span> <span class="ph">${rs_bi_alefdw}</span>.student_login;</code></pre>
+</section>
+
+
+<!-- ─────────────── ALL SETTINGS ─────────────── -->
+<section class="section" id="s-settings">
+  <div class="section-hero">
+    <div class="section-eyebrow">Configuration</div>
+    <h1>All Settings Reference</h1>
+    <p>Every configurable setting in <code>app/core/settings.py</code>. All can also be overridden via the <code>.env</code> file.</p>
+  </div>
+
+  <h2>Application</h2>
+  <table>
+    <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>app_name</code></td><td><code>"Redshift → Fabric..."</code></td><td>Application display name</td></tr>
+    <tr><td><code>app_version</code></td><td><code>"1.0.0"</code></td><td>Version string shown in API</td></tr>
+    <tr><td><code>debug</code></td><td><code>False</code></td><td>Enable debug mode</td></tr>
+    <tr><td><code>log_level</code></td><td><code>"INFO"</code></td><td>DEBUG / INFO / WARNING / ERROR</td></tr>
+  </table>
+
+  <h2>API Server</h2>
+  <table>
+    <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>api_host</code></td><td><code>"0.0.0.0"</code></td><td>Bind address</td></tr>
+    <tr><td><code>api_port</code></td><td><code>8000</code></td><td>Port number</td></tr>
+    <tr><td><code>api_prefix</code></td><td><code>"/api/v1"</code></td><td>All API routes prefix</td></tr>
+  </table>
+
+  <h2>Storage Paths</h2>
+  <table>
+    <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>upload_dir</code></td><td><code>data/uploads</code></td><td>Where uploaded .sql files are saved</td></tr>
+    <tr><td><code>output_dir</code></td><td><code>data/outputs</code></td><td>Where converted .sql files are written</td></tr>
+    <tr><td><code>reports_dir</code></td><td><code>data/reports</code></td><td>Where .md and .json reports go</td></tr>
+    <tr><td><code>logs_dir</code></td><td><code>data/logs</code></td><td>Structured log files</td></tr>
+    <tr><td><code>max_upload_size_mb</code></td><td><code>50</code></td><td>Max file upload size in MB</td></tr>
+  </table>
+
+  <h2>Schema &amp; Placeholder Settings</h2>
+  <table>
+    <tr><th>Setting</th><th>Default</th><th>Description</th></tr>
+    <tr><td><code>schema_placeholder_map</code></td><td>(dict)</td><td>Source schema → Fabric placeholder mapping. <strong>Edit this for every new project.</strong></td></tr>
+    <tr><td><code>output_schema_placeholder</code></td><td><code>"${os_bi_alefdw}"</code></td><td>Schema written into CREATE OR ALTER VIEW header</td></tr>
+    <tr><td><code>flyway_schema_placeholder</code></td><td><code>"${schema}"</code></td><td>Schema written into CREATE TABLE</td></tr>
+    <tr><td><code>strip_name_suffixes</code></td><td><code>["_mv","_view"]</code></td><td>Suffixes stripped from table/view names on conversion</td></tr>
+    <tr><td><code>strip_table_suffixes_in_views</code></td><td><code>True</code></td><td>Whether _mv/_view is stripped from table refs inside view bodies</td></tr>
+  </table>
+
+  <h2>Using .env Instead of Editing Python</h2>
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="cm"># .env file — override any setting here</span>
+LOG_LEVEL=DEBUG
+API_PORT=9000
+OUTPUT_SCHEMA_PLACEHOLDER=${os_reporting}
+FLYWAY_SCHEMA_PLACEHOLDER=${schema}
+MAX_UPLOAD_SIZE_MB=100</code></pre>
+
+  <div class="card card-amber">
+    <div class="card-title">⚠ Note</div>
+    <p style="margin:0"><code>schema_placeholder_map</code> is a Python dict and cannot be set via <code>.env</code>. It must be edited directly in <code>settings.py</code>.</p>
+  </div>
+</section>
+
+
+<!-- ─────────────── DATATYPES ─────────────── -->
+<section class="section" id="s-datatypes">
+  <div class="section-hero">
+    <div class="section-eyebrow">Conversion Rules</div>
+    <h1>Datatype Mapping</h1>
+    <p>All type mappings live in <code>app/core/rules.py</code> → <code>DATATYPE_MAP</code> dict and the <code>_map_datatype()</code> function in <code>app/parser/table_parser.py</code>.</p>
+  </div>
+
+  <table>
+    <tr><th>Redshift Type</th><th>Fabric T-SQL</th><th>Status</th><th>Notes</th></tr>
+    <tr><td><code>bigint</code>, <code>int8</code></td><td><code>BIGINT</code></td><td><span class="badge badge-green">AUTO</span></td><td>Direct</td></tr>
+    <tr><td><code>integer</code>, <code>int4</code>, <code>int</code></td><td><code>INT</code></td><td><span class="badge badge-green">AUTO</span></td><td>Direct</td></tr>
+    <tr><td><code>smallint</code>, <code>int2</code></td><td><code>SMALLINT</code></td><td><span class="badge badge-green">AUTO</span></td><td>Direct</td></tr>
+    <tr><td><code>double precision</code>, <code>float8</code></td><td><code>FLOAT(53)</code></td><td><span class="badge badge-green">AUTO</span></td><td>Direct</td></tr>
+    <tr><td><code>float4</code>, <code>real</code></td><td><code>REAL</code></td><td><span class="badge badge-green">AUTO</span></td><td>Direct</td></tr>
+    <tr><td><code>numeric(p,s)</code>, <code>decimal(p,s)</code></td><td><code>DECIMAL(p,s)</code></td><td><span class="badge badge-green">AUTO</span></td><td>Precision preserved</td></tr>
+    <tr><td><code>character varying(n)</code>, <code>varchar(n)</code></td><td><code>VARCHAR(n)</code></td><td><span class="badge badge-green">AUTO</span></td><td>Up to 8000</td></tr>
+    <tr><td><code>varchar(65535)</code> or <code>&gt;8000</code></td><td><code>VARCHAR(MAX)</code></td><td><span class="badge badge-green">AUTO</span></td><td>Threshold-based</td></tr>
+    <tr><td><code>boolean</code>, <code>bool</code></td><td><code>BIT</code></td><td><span class="badge badge-green">AUTO</span></td><td>Direct</td></tr>
+    <tr><td><code>timestamp without time zone</code></td><td><code>DATETIME2(6)</code></td><td><span class="badge badge-green">AUTO</span></td><td>Direct</td></tr>
+    <tr><td><code>timestamp with time zone</code></td><td><code>DATETIME2(6)</code></td><td><span class="badge badge-amber">WARN</span></td><td>TZ info stripped</td></tr>
+    <tr><td><code>date</code></td><td><code>DATE</code></td><td><span class="badge badge-green">AUTO</span></td><td>Direct</td></tr>
+    <tr><td><code>text</code></td><td><code>VARCHAR(MAX)</code></td><td><span class="badge badge-amber">WARN</span></td><td>Warning issued</td></tr>
+    <tr><td><code>geometry</code></td><td><code>VARCHAR(MAX)</code></td><td><span class="badge badge-amber">WARN</span></td><td>No spatial support in Fabric Warehouse</td></tr>
+    <tr><td><code>super</code></td><td><code>VARCHAR(MAX)</code></td><td><span class="badge badge-amber">WARN</span></td><td>JSON as string</td></tr>
+    <tr><td><code>varbyte</code></td><td><code>VARBINARY(MAX)</code></td><td><span class="badge badge-amber">WARN</span></td><td>Warning issued</td></tr>
+    <tr><td><code>hllsketch</code></td><td><code>VARCHAR(MAX)</code></td><td><span class="badge badge-red">MANUAL</span></td><td>No equivalent — manual redesign</td></tr>
+  </table>
+</section>
+
+
+<!-- ─────────────── FUNCTIONS ─────────────── -->
+<section class="section" id="s-functions">
+  <div class="section-hero">
+    <div class="section-eyebrow">Conversion Rules</div>
+    <h1>Function Mapping</h1>
+    <p>All function transformations run in <code>app/transformer/view_transformer.py</code>. The pipeline is defined in <code>transform_view()</code> around line 55.</p>
+  </div>
+
+  <div class="fn-grid">
+    <div class="fn-card"><div class="fn-card-from">NVL(a, b)</div><div class="fn-card-to">→ ISNULL(a, b)</div><div class="fn-card-note">2-arg only. 3+ args → COALESCE</div></div>
+    <div class="fn-card"><div class="fn-card-from">NVL(a, b, c)</div><div class="fn-card-to">→ COALESCE(a, b, c)</div><div class="fn-card-note">3+ args auto-detected</div></div>
+    <div class="fn-card"><div class="fn-card-from">COALESCE(a, b)</div><div class="fn-card-to">→ ISNULL(a, b)</div><div class="fn-card-note">2-arg → ISNULL preferred in T-SQL</div></div>
+    <div class="fn-card"><div class="fn-card-from">COALESCE(a, b, c)</div><div class="fn-card-to">→ COALESCE(a, b, c)</div><div class="fn-card-note">3+ args kept as COALESCE</div></div>
+    <div class="fn-card"><div class="fn-card-from">DATE_TRUNC('week', x)</div><div class="fn-card-to">→ DATETRUNC(iso_week, x)</div><div class="fn-card-note">week → iso_week for ISO-8601</div></div>
+    <div class="fn-card"><div class="fn-card-from">DATE_TRUNC('month', x)</div><div class="fn-card-to">→ DATETRUNC(month, x)</div><div class="fn-card-note">Arg order swapped</div></div>
+    <div class="fn-card"><div class="fn-card-from">DATE_PART_YEAR(x)</div><div class="fn-card-to">→ DATEPART(YEAR, x)</div><div class="fn-card-note">Direct replacement</div></div>
+    <div class="fn-card"><div class="fn-card-from">date_part(year, x)</div><div class="fn-card-to">→ DATEPART(YEAR, x)</div><div class="fn-card-note">Any date part supported</div></div>
+    <div class="fn-card"><div class="fn-card-from">CURRENT_DATE</div><div class="fn-card-to">→ CONVERT(DATE, GETDATE())</div><div class="fn-card-note">Direct</div></div>
+    <div class="fn-card"><div class="fn-card-from">CURRENT_TIMESTAMP</div><div class="fn-card-to">→ GETDATE()</div><div class="fn-card-note">Direct</div></div>
+    <div class="fn-card"><div class="fn-card-from">TRUNC(SYSDATE) - 1</div><div class="fn-card-to">→ DATEADD(DAY,-1,CAST(GETDATE() AS DATE))</div><div class="fn-card-note">Compound pattern</div></div>
+    <div class="fn-card"><div class="fn-card-from">expr::timestamp</div><div class="fn-card-to">→ CONVERT(DATETIME2(6), expr)</div><div class="fn-card-note">Backward-scanning :: parser</div></div>
+    <div class="fn-card"><div class="fn-card-from">CAST(x AS type)</div><div class="fn-card-to">→ CONVERT(type, x)</div><div class="fn-card-note">Preferred T-SQL form</div></div>
+    <div class="fn-card"><div class="fn-card-from">date(expr)</div><div class="fn-card-to">→ CONVERT(DATE, expr)</div><div class="fn-card-note">Postgres date() function</div></div>
+    <div class="fn-card"><div class="fn-card-from">IS FALSE / IS TRUE</div><div class="fn-card-to">→ = 0 / = 1</div><div class="fn-card-note">Boolean expression rewrite</div></div>
+    <div class="fn-card"><div class="fn-card-from">LISTAGG(col, ',')</div><div class="fn-card-to">→ STRING_AGG(col, ',')</div><div class="fn-card-note">DISTINCT not supported in STRING_AGG</div></div>
+    <div class="fn-card"><div class="fn-card-from">INITCAP(expr)</div><div class="fn-card-to">→ UPPER(expr) + comment</div><div class="fn-card-note">No Title Case in Fabric</div></div>
+    <div class="fn-card"><div class="fn-card-from">a || b</div><div class="fn-card-to">→ a + b</div><div class="fn-card-note">Pipe concat → + operator</div></div>
+    <div class="fn-card"><div class="fn-card-from">CONVERT_TIMEZONE('UTC',tz,col)</div><div class="fn-card-to">→ AT TIME ZONE pattern</div><div class="fn-card-note">Windows TZ IDs required</div></div>
+    <div class="fn-card"><div class="fn-card-from">GROUP BY 1,2,3</div><div class="fn-card-to">→ GROUP BY col1, col2, col3</div><div class="fn-card-note">CASE expressions preserved</div></div>
+  </div>
+
+  <h3>Functions that generate warnings (no full equivalent)</h3>
+  <table>
+    <tr><th>Function</th><th>Status</th><th>Action</th></tr>
+    <tr><td><code>REGEXP_REPLACE / REGEXP_SUBSTR</code></td><td><span class="badge badge-red">MANUAL</span></td><td>No native regex in Fabric — CLR or app layer needed</td></tr>
+    <tr><td><code>QUALIFY</code></td><td><span class="badge badge-amber">WARN</span></td><td>Wrap in subquery + WHERE on window function</td></tr>
+    <tr><td><code>md5()</code></td><td><span class="badge badge-amber">WARN</span></td><td>Kept as-is — create a UDF or use HASHBYTES</td></tr>
+    <tr><td><code>DECODE()</code></td><td><span class="badge badge-amber">WARN</span></td><td>Converted to CASE WHEN — verify NULL semantics</td></tr>
+    <tr><td><code>INITCAP()</code></td><td><span class="badge badge-amber">WARN</span></td><td>Replaced with UPPER() — not Title Case</td></tr>
+  </table>
+</section>
+
+
+<!-- ─────────────── SYNTAX RULES ─────────────── -->
+<section class="section" id="s-syntax">
+  <div class="section-hero">
+    <div class="section-eyebrow">Conversion Rules</div>
+    <h1>Syntax Rules</h1>
+    <p>Redshift-specific clauses that are automatically stripped or rewritten. No Fabric equivalent exists for these.</p>
+  </div>
+
+  <h2>Automatically Stripped (No Warning)</h2>
+  <table>
+    <tr><th>Redshift Clause</th><th>Action</th></tr>
+    <tr><td><code>ENCODE az64 / lzo / raw / bytedict / zstd</code></td><td>Stripped from column definitions</td></tr>
+    <tr><td><code>DISTSTYLE AUTO / KEY / ALL / EVEN</code></td><td>Stripped from table DDL</td></tr>
+    <tr><td><code>DISTKEY(column)</code></td><td>Stripped — Fabric manages distribution</td></tr>
+    <tr><td><code>SORTKEY(columns)</code></td><td>Stripped — Fabric manages ordering</td></tr>
+    <tr><td><code>BACKUP NO / YES</code></td><td>Stripped — Fabric manages backup</td></tr>
+    <tr><td><code>WITH NO SCHEMA BINDING</code></td><td>Stripped from view headers</td></tr>
+    <tr><td><code>CREATE OR REPLACE VIEW</code></td><td>Rewritten to <code>CREATE OR ALTER VIEW</code></td></tr>
+  </table>
+
+  <h2>Stripped with Warning</h2>
+  <table>
+    <tr><th>Clause</th><th>Warning Code</th><th>Action Required</th></tr>
+    <tr><td><code>INTERLEAVED SORTKEY</code></td><td><code>INTERLEAVED_SORTKEY</code></td><td>None — Fabric handles automatically</td></tr>
+    <tr><td><code>TIMESTAMP WITH TIME ZONE</code></td><td><code>TIMEZONE_STRIPPED</code></td><td>Ensure UTC before migration</td></tr>
+    <tr><td><code>IDENTITY(seed,step)</code></td><td><code>IDENTITY_COLUMN</code></td><td>Verify Fabric IDENTITY syntax</td></tr>
+  </table>
+
+  <h2>Materialized View → Stored Procedure</h2>
+  <p>Fabric Warehouse does not support materialised views. The converter produces a stored procedure using the CTAS refresh pattern:</p>
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="cm">-- Generated from: CREATE MATERIALIZED VIEW bi_alefdw.agg_foo_mv AS ...</span>
+<span class="kw">CREATE OR ALTER PROCEDURE</span> <span class="ph">${os_bi_alefdw}</span>.usp_refresh_agg_foo <span class="kw">AS</span>
+<span class="kw">BEGIN</span>
+    <span class="kw">DROP TABLE IF EXISTS</span> <span class="ph">${os_bi_alefdw}</span>.agg_foo_staging;
+    <span class="kw">CREATE TABLE</span> <span class="ph">${os_bi_alefdw}</span>.agg_foo_staging <span class="kw">AS</span>
+    &lt;original SELECT body&gt;;
+    <span class="kw">DROP TABLE IF EXISTS</span> <span class="ph">${os_bi_alefdw}</span>.agg_foo;
+    <span class="kw">EXEC</span> sp_rename <span class="str">'agg_foo_staging'</span>, <span class="str">'agg_foo'</span>;
+<span class="kw">END</span>;</code></pre>
+</section>
+
+
+<!-- ─────────────── ADD NEW SCHEMA ─────────────── -->
+<section class="section" id="s-add-schema">
+  <div class="section-hero">
+    <div class="section-eyebrow">Extending the System</div>
+    <h1>Add a New Schema Mapping</h1>
+    <p>The most common customisation task. Takes under 60 seconds.</p>
+  </div>
+
+  <ol class="steps">
+    <li><div class="step-body"><strong>Open <code>app/core/settings.py</code></strong><span>Find the <code>schema_placeholder_map</code> dict around line 57.</span></div></li>
+    <li><div class="step-body"><strong>Add your entry</strong><span>Key = source schema name (lowercase). Value = the <code>${placeholder}</code> you want in the output.</span></div></li>
+    <li><div class="step-body"><strong>Set output_schema_placeholder</strong><span>Around line 65 — change this to the schema that will own the views in Fabric.</span></div></li>
+    <li><div class="step-body"><strong>Restart the server</strong><span><code>Ctrl+C</code> to stop, then <code>python run.py server</code> again.</span></div></li>
+    <li><div class="step-body"><strong>Test it</strong><span>Paste a view that uses your new schema and verify the output uses your new placeholder.</span></div></li>
+  </ol>
+
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="cm"># app/core/settings.py</span>
+
+schema_placeholder_map: dict[str, str] = {
+    <span class="py-str">"bi_alefdw"</span>:   <span class="py-str">"${rs_bi_alefdw}"</span>,
+    <span class="py-str">"alefdw"</span>:      <span class="py-str">"${rs_alefdw}"</span>,
+
+    <span class="cm"># ← add your schemas below this line</span>
+    <span class="py-str">"your_schema"</span>: <span class="py-str">"${rs_your_schema}"</span>,
+}
+
+output_schema_placeholder: str = <span class="py-str">"${os_your_output_schema}"</span></code></pre>
+</section>
+
+
+<!-- ─────────────── ADD NEW RULE ─────────────── -->
+<section class="section" id="s-add-rule">
+  <div class="section-hero">
+    <div class="section-eyebrow">Extending the System</div>
+    <h1>Add a New Transformation Rule</h1>
+    <p>To add a new Redshift → Fabric function or syntax conversion.</p>
+  </div>
+
+  <ol class="steps">
+    <li><div class="step-body"><strong>Write the transformer function</strong><span>Add it to <code>app/transformer/view_transformer.py</code>. Every function has the same signature.</span></div></li>
+    <li><div class="step-body"><strong>Add it to the pipeline</strong><span>Find the <code>pipeline</code> list in <code>transform_view()</code> around line 55. Add a tuple: <code>("RULE_ID", _your_function)</code>.</span></div></li>
+    <li><div class="step-body"><strong>Add a unit test</strong><span>Add a test in <code>tests/unit/test_view_transformer.py</code>.</span></div></li>
+    <li><div class="step-body"><strong>Run tests</strong><span><code>python run.py test --suite unit</code> — all 74+ must pass.</span></div></li>
+  </ol>
+
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="cm"># app/transformer/view_transformer.py</span>
+
+<span class="cm"># Step 1 — write the function</span>
+<span class="py-kw">def</span> <span class="py-fn">_transform_my_function</span>(sql: str) -> tuple[str, list[ConversionWarning]]:
+    <span class="py-str">"""MY_FUNC(x) → MY_TSQL_EQUIV(x)"""</span>
+    warnings: list[ConversionWarning] = []
+    result = re.sub(<span class="py-str">r'\bMY_FUNC\s*\('</span>, <span class="py-str">'MY_TSQL_EQUIV('</span>, sql, flags=re.IGNORECASE)
+    <span class="py-kw">return</span> result, warnings
+
+
+<span class="cm"># Step 2 — add to pipeline list (in transform_view)</span>
+pipeline: list[tuple[str, Callable]] = [
+    ...
+    (<span class="py-str">"MY_FUNCTION_RULE"</span>, _transform_my_function),   <span class="cm"># ← add here</span>
+    ...
+]</code></pre>
+</section>
+
+
+<!-- ─────────────── ADD NEW DATATYPE ─────────────── -->
+<section class="section" id="s-add-datatype">
+  <div class="section-hero">
+    <div class="section-eyebrow">Extending the System</div>
+    <h1>Add a New Datatype Mapping</h1>
+    <p>For any Redshift type that isn't handled yet.</p>
+  </div>
+
+  <p>Open <code>app/core/rules.py</code> and add an entry to <code>DATATYPE_MAP</code>:</p>
+
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="cm"># app/core/rules.py — DATATYPE_MAP dict</span>
+
+DATATYPE_MAP: dict[str, dict] = {
+    ...
+    <span class="cm"># ← add your type here</span>
+    <span class="py-str">"MY_REDSHIFT_TYPE"</span>: {
+        <span class="py-str">"fabric_type"</span>: <span class="py-str">"MY_FABRIC_TYPE"</span>,
+        <span class="py-str">"severity"</span>: RuleSeverity.AUTO,           <span class="cm"># AUTO / WARN / MANUAL / UNSUPPORTED</span>
+        <span class="py-str">"note"</span>: <span class="py-str">"Optional explanation shown in warnings."</span>,
+    },
+}</code></pre>
+
+  <p>The table parser reads <code>DATATYPE_MAP</code> automatically — no other changes needed.</p>
+
+  <h3>Severity Levels</h3>
+  <table>
+    <tr><th>Severity</th><th>Meaning</th><th>Effect</th></tr>
+    <tr><td><span class="badge badge-green">AUTO</span></td><td>Fully automatic, clean conversion</td><td>No warning generated</td></tr>
+    <tr><td><span class="badge badge-amber">WARN</span></td><td>Converted but needs review</td><td>Warning in output + confidence penalty</td></tr>
+    <tr><td><span class="badge badge-red">MANUAL</span></td><td>No equivalent — needs manual work</td><td>MANUAL_REVIEW status, flagged prominently</td></tr>
+    <tr><td><span class="badge badge-red">UNSUPPORTED</span></td><td>Completely unsupported</td><td>Same as MANUAL + error-level warning</td></tr>
+  </table>
+</section>
+
+
+<!-- ─────────────── CLI ─────────────── -->
+<section class="section" id="s-cli">
+  <div class="section-hero">
+    <div class="section-eyebrow">Operations</div>
+    <h1>CLI Commands</h1>
+    <p>All operations are available from the terminal via <code>run.py</code>.</p>
+  </div>
+
+  <h2>Convert</h2>
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="cm"># Convert a SQL file</span>
+python run.py convert --file bi_alefdw_tables.sql
+
+<span class="cm"># Convert and write to a custom folder</span>
+python run.py convert --file bi_alefdw_tables.sql --out-dir ./my_results
+
+<span class="cm"># Convert inline SQL</span>
+python run.py convert --sql "CREATE TABLE bi_alefdw.foo (id bigint ENCODE raw) DISTSTYLE AUTO;"</code></pre>
+
+  <h2>Validate</h2>
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="cm"># Check converted SQL for residual Redshift syntax</span>
+python run.py validate --file data/outputs/my_job/combined/all_converted.sql</code></pre>
+
+  <h2>Server</h2>
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code>python run.py server                  <span class="cm"># default port 8000</span>
+python run.py server --port 9000       <span class="cm"># custom port</span>
+python run.py server --reload          <span class="cm"># auto-reload on code changes (dev mode)</span></code></pre>
+
+  <h2>Test</h2>
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code>python run.py test                     <span class="cm"># run all tests</span>
+python run.py test --suite unit        <span class="cm"># unit tests only (fast, no file I/O)</span>
+python run.py test --suite integration <span class="cm"># integration tests (uses real DDL fixtures)</span>
+python run.py test --cov               <span class="cm"># with coverage report</span></code></pre>
+
+  <h2>Exit Codes</h2>
+  <table>
+    <tr><th>Code</th><th>Meaning</th></tr>
+    <tr><td><code>0</code></td><td>All objects converted with high confidence</td></tr>
+    <tr><td><code>1</code></td><td>Partial success — some warnings or manual review items</td></tr>
+    <tr><td><code>2</code></td><td>All objects failed, or input file not found</td></tr>
+  </table>
+</section>
+
+
+<!-- ─────────────── API ─────────────── -->
+<section class="section" id="s-api">
+  <div class="section-hero">
+    <div class="section-eyebrow">Operations</div>
+    <h1>REST API Reference</h1>
+    <p>All endpoints are available at <code>http://localhost:8000/api/v1/</code>. Interactive docs at <code>/docs</code>.</p>
+  </div>
+
+  <table>
+    <tr><th>Method</th><th>Endpoint</th><th>Description</th></tr>
+    <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/v1/health</code></td><td>API health check</td></tr>
+    <tr><td><span class="badge badge-blue">POST</span></td><td><code>/api/v1/convert/sql</code></td><td>Convert inline SQL string</td></tr>
+    <tr><td><span class="badge badge-blue">POST</span></td><td><code>/api/v1/convert/file</code></td><td>Upload and convert a .sql file</td></tr>
+    <tr><td><span class="badge badge-blue">POST</span></td><td><code>/api/v1/convert/validate</code></td><td>Validate converted T-SQL for residual Redshift syntax</td></tr>
+    <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/v1/convert/download/{path}</code></td><td>Download a generated output file</td></tr>
+    <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/v1/reports/</code></td><td>List all conversion report jobs</td></tr>
+    <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/v1/reports/{job_id}</code></td><td>Fetch JSON summary for a job</td></tr>
+    <tr><td><span class="badge badge-green">GET</span></td><td><code>/api/v1/reports/{job_id}/markdown</code></td><td>Fetch Markdown report for a job</td></tr>
+  </table>
+
+  <h2>Convert SQL — Request Body</h2>
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code>{
+  "sql": "CREATE TABLE bi_alefdw.foo (id bigint ENCODE raw) DISTSTYLE AUTO;",
+  "source_filename": "my_file.sql"
+}</code></pre>
+
+  <h2>cURL Examples</h2>
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code><span class="cm"># Convert inline SQL</span>
+curl -X POST http://localhost:8000/api/v1/convert/sql \
+  -H "Content-Type: application/json" \
+  -d '{"sql": "CREATE TABLE bi_alefdw.t1 (id bigint ENCODE raw) DISTSTYLE AUTO;"}'
+
+<span class="cm"># Upload a file</span>
+curl -X POST http://localhost:8000/api/v1/convert/file \
+  -F "file=@bi_alefdw_tables.sql"
+
+<span class="cm"># List reports</span>
+curl http://localhost:8000/api/v1/reports/</code></pre>
+</section>
+
+
+<!-- ─────────────── TESTING ─────────────── -->
+<section class="section" id="s-testing">
+  <div class="section-hero">
+    <div class="section-eyebrow">Operations</div>
+    <h1>Running Tests</h1>
+    <p>74 unit tests + integration tests. All must pass before committing changes.</p>
+  </div>
+
+  <h2>Test Files</h2>
+  <table>
+    <tr><th>File</th><th>Tests</th><th>What it covers</th></tr>
+    <tr><td><code>tests/unit/test_splitter.py</code></td><td>9</td><td>Statement splitting, classification, comment handling</td></tr>
+    <tr><td><code>tests/unit/test_table_parser.py</code></td><td>17</td><td>Type mapping, ENCODE strip, DISTKEY, SORTKEY, geometry</td></tr>
+    <tr><td><code>tests/unit/test_table_generator.py</code></td><td>12</td><td>Idempotent DDL, placeholders, bracket quoting, indentation</td></tr>
+    <tr><td><code>tests/unit/test_view_transformer.py</code></td><td>36</td><td>NVL, DATE_TRUNC, boolean, schema refs, LISTAGG, matview</td></tr>
+    <tr><td><code>tests/integration/test_pipeline_integration.py</code></td><td>25+</td><td>End-to-end with real bi_alefdw_tables.sql fixture</td></tr>
+  </table>
+
+<pre><div class="copy-btn" onclick="copyPre(this)">copy</div><code>python run.py test                     <span class="cm"># all tests</span>
+python run.py test --suite unit        <span class="cm"># fast — no file I/O</span>
+python run.py test -k "test_boolean"   <span class="cm"># run one specific test by name</span>
+python run.py test --cov               <span class="cm"># with HTML coverage report</span></code></pre>
+
+  <div class="card card-green">
+    <div class="card-title">✅ Expected Result</div>
+    <p style="margin:0">All 74 unit tests should pass in under 1 second.<br>Integration tests use real fixture files and take 2–5 seconds.</p>
+  </div>
+</section>
+
+
+<!-- ─────────────── TROUBLESHOOT ─────────────── -->
+<section class="section" id="s-troubleshoot">
+  <div class="section-hero">
+    <div class="section-eyebrow">Operations</div>
+    <h1>Troubleshooting</h1>
+    <p>Common errors and their fixes.</p>
+  </div>
+
+  <h2>Setup Issues</h2>
+
+  <div class="card card-amber">
+    <div class="card-title">⚠ ModuleNotFoundError: No module named 'pydantic'</div>
+    <p>Dependencies not installed. The venv is empty after unzipping.</p>
+<pre style="margin-top:10px"><code>python -m pip install -r requirements.txt</code></pre>
+  </div>
+
+  <div class="card card-amber">
+    <div class="card-title">⚠ Activate.ps1 is not recognized</div>
+    <p>Either the venv doesn't exist yet, or PowerShell execution is blocked.</p>
+<pre style="margin-top:10px"><code><span class="cm"># Create venv first</span>
+python -m venv .venv
+
+<span class="cm"># Allow scripts for this session</span>
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+
+<span class="cm"># Then activate</span>
+.\.venv\Scripts\Activate.ps1</code></pre>
+  </div>
+
+  <div class="card card-amber">
+    <div class="card-title">⚠ 'pip' is not recognized</div>
+    <p>On some Python 3.13/3.14 installs, <code>pip</code> isn't in PATH. Always use:</p>
+<pre style="margin-top:10px"><code>python -m pip install ...</code></pre>
+  </div>
+
+  <h2>Conversion Issues</h2>
+
+  <div class="card card-amber">
+    <div class="card-title">⚠ Schema not being replaced with placeholder</div>
+    <p>The schema name isn't in <code>schema_placeholder_map</code>. Keys must be <strong>lowercase</strong>.</p>
+    <p>Edit <code>app/core/settings.py</code> and add the schema. Restart the server.</p>
+  </div>
+
+  <div class="card card-amber">
+    <div class="card-title">⚠ GROUP BY 1,2,3 not expanded</div>
+    <p>The SELECT column list couldn't be parsed (likely a complex CASE or nested subquery). A warning is added and the ordinal is kept. Manual expansion required.</p>
+  </div>
+
+  <div class="card card-red">
+    <div class="card-title">❌ Parse error / FAILED status</div>
+    <p>The DDL statement couldn't be parsed at all. Common causes:</p>
+    <ul class="checklist">
+      <li>Missing semicolon between statements</li>
+      <li>Deeply nested or non-standard Redshift syntax</li>
+      <li>Statements with CREATE PROCEDURE / FUNCTION (not yet supported)</li>
+    </ul>
+    <p>Check the warning message for the exact parse error. Split the file and test statements individually.</p>
+  </div>
+
+  <h2>Output Location</h2>
+  <table>
+    <tr><th>What</th><th>Where</th></tr>
+    <tr><td>Converted SQL</td><td><code>data/outputs/&lt;timestamp_jobid&gt;/combined/all_converted.sql</code></td></tr>
+    <tr><td>Tables only</td><td><code>data/outputs/&lt;timestamp_jobid&gt;/tables/converted_tables.sql</code></td></tr>
+    <tr><td>Views only</td><td><code>data/outputs/&lt;timestamp_jobid&gt;/views/converted_views.sql</code></td></tr>
+    <tr><td>Markdown report</td><td><code>data/reports/&lt;timestamp_jobid&gt;/conversion_report.md</code></td></tr>
+    <tr><td>JSON summary</td><td><code>data/reports/&lt;timestamp_jobid&gt;/conversion_summary.json</code></td></tr>
+    <tr><td>Server logs</td><td><code>data/logs/converter.log</code></td></tr>
+  </table>
+</section>
+
+
+</div><!-- /content -->
+</main>
+
+</div><!-- /shell -->
+
+<script>
+function show(id) {
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  const sec = document.getElementById('s-' + id);
+  if (sec) sec.classList.add('active');
+  event.currentTarget.classList.add('active');
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+}
+
+function copyPre(btn) {
+  const pre = btn.parentElement;
+  const text = pre.textContent.replace('copy', '').trim();
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = 'copied!';
+    btn.classList.add('copied');
+    setTimeout(() => { btn.textContent = 'copy'; btn.classList.remove('copied'); }, 2000);
+  });
+}
+</script>
+</body>
+</html>

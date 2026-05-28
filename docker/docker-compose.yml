@@ -1,0 +1,25 @@
+version: "3.9"
+
+services:
+  converter-api:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: redshift_fabric_converter
+    ports:
+      - "8000:8000"
+    environment:
+      - LOG_LEVEL=INFO
+      - API_PORT=8000
+    volumes:
+      # Mount data directories so outputs persist outside the container
+      - ../data/uploads:/app/data/uploads
+      - ../data/outputs:/app/data/outputs
+      - ../data/reports:/app/data/reports
+      - ../data/logs:/app/data/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
