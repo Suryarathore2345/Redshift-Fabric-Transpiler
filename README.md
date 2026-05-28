@@ -22,7 +22,6 @@ Upload a `.sql` file or paste DDL directly — get parameterised Fabric T-SQL wi
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111%2B-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Tests](https://img.shields.io/badge/Tests-74%20passing-brightgreen?style=flat-square&logo=pytest&logoColor=white)](tests/)
-[![License](https://img.shields.io/badge/License-MIT-purple?style=flat-square)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-v10-orange?style=flat-square)](CHANGELOG.md)
 
 <br/>
@@ -445,15 +444,6 @@ python run.py test --cov               # with coverage report
 
 Please ensure all 74 tests pass before submitting a PR.
 
-<br/>
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
-<br/>
 
 ---
 
