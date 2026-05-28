@@ -22,7 +22,7 @@ Upload a `.sql` file or paste DDL directly — get parameterised Fabric T-SQL wi
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111%2B-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 [![Tests](https://img.shields.io/badge/Tests-74%20passing-brightgreen?style=flat-square&logo=pytest&logoColor=white)](tests/)
-[![Version](https://img.shields.io/badge/Version-v10-orange?style=flat-square)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-v4-orange?style=flat-square)](CHANGELOG.md)
 
 <br/>
 
