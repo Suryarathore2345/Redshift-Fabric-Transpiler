@@ -1,6 +1,6 @@
 """
 Table DDL Generator  (v3 — inline warning comments)
-
+ 
 What changed vs v2
 ──────────────────
 FEATURE: Inline SQL comments on every column/line that has a warning.
