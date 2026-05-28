@@ -53,12 +53,12 @@ Start the server and open `http://localhost:8000` in your browser.
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│  ✏️  PASTE SQL          📁  UPLOAD FILE                  │
+│  ✏️  PASTE SQL          📁  UPLOAD FILE                │
 │  ─────────────────      ─────────────────────────────── │
 │  [ Paste Redshift    ]  [ Drop .sql / .txt here       ] │
 │  [ DDL here...       ]  [ or click to browse          ] │
 │                                                         │
-│              [ ⚡ Convert to Fabric T-SQL ]              │
+│              [ ⚡ Convert to Fabric T-SQL]              |
 └─────────────────────────────────────────────────────────┘
 ```
 
