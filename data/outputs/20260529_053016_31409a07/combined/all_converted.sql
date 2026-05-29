@@ -1,7 +1,7 @@
 -- ==============================================================================
 -- Redshift → Microsoft Fabric DDL Conversion Output
 -- Source:    inline_input.sql
--- Generated: 2026-05-29T04:55:58.678974+00:00
+-- Generated: 2026-05-29T05:30:16.581426+00:00
 -- Objects:   1 total | 0 high-confidence | 1 partial | 0 manual review | 0 failed
 -- ==============================================================================
 
@@ -21,7 +21,7 @@
 --   💡 Review expanded GROUP BY columns for correctness.
 -- ══════════════════════════════════════════════════════════════════
 
-CREATE MATERIALIZED LAKE VIEW IF NOT EXISTS bi_alefdw.v_student_summary
+CREATE OR REPLACE MATERIALIZED LAKE VIEW bi_alefdw.v_student_summary
 AS
 SELECT
     sl.school_dw_id,

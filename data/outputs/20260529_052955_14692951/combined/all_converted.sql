@@ -1,11 +1,18 @@
--- ======================================================================
--- SECTION: VIEWS
--- Generated: 2026-05-29T04:55:58.676979+00:00
--- ======================================================================
+-- ==============================================================================
+-- Redshift → Microsoft Fabric DDL Conversion Output
+-- Source:    inline_input.sql
+-- Generated: 2026-05-29T05:29:55.342034+00:00
+-- Objects:   1 total | 0 high-confidence | 1 partial | 0 manual review | 0 failed
+-- ==============================================================================
+
+
+-- ------------------------------------------------------------------------------
+-- VIEWS / STORED PROCEDURES
+-- ------------------------------------------------------------------------------
 
 -- ══════════════════════════════════════════════════════════════════
 -- MATERIALIZED LAKE VIEW: bi_alefdw.v_student_summary
--- Target  : bi_alefdw.v_student_summary
+-- Target  : ${os_bi_alefdw}.v_student_summary
 -- Engine  : Fabric Lakehouse · Spark SQL (Delta Lake)
 -- Status  : ⚠️  PARTIAL  |  Confidence: 95%
 -- Warnings: 1
@@ -14,7 +21,7 @@
 --   💡 Review expanded GROUP BY columns for correctness.
 -- ══════════════════════════════════════════════════════════════════
 
-CREATE MATERIALIZED LAKE VIEW IF NOT EXISTS bi_alefdw.v_student_summary
+CREATE OR REPLACE MATERIALIZED LAKE VIEW ${os_bi_alefdw}.v_student_summary
 AS
 SELECT
     sl.school_dw_id,
@@ -26,7 +33,7 @@ SELECT
     CAST(sl.login_local_date_time AS DATE)                   AS login_date,
     COALESCE(sl.student_dw_id, 0)                    AS student_id_safe,
     COUNT(*) AS login_count
-FROM bi_alefdw.student_login sl
+FROM ${rs_bi_alefdw}.student_login sl
 WHERE sl.outside_school_flag = false
 GROUP BY
     sl.school_dw_id,
@@ -37,4 +44,3 @@ GROUP BY
     CURRENT_DATE,
     CAST(sl.login_local_date_time AS DATE),
     COALESCE(sl.student_dw_id, 0);
-

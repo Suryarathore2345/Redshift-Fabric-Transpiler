@@ -1,0 +1,42 @@
+{
+  "job_id": "20260529_053016_31409a07",
+  "source_filename": "inline_input.sql",
+  "generated_at": "2026-05-29T05:30:16.594878+00:00",
+  "duration_ms": 11.2,
+  "statistics": {
+    "total_objects": 1,
+    "successful": 0,
+    "partial": 1,
+    "manual_review": 0,
+    "failed": 0,
+    "success_rate": 0.0
+  },
+  "tables": [],
+  "views": [
+    {
+      "source_name": "bi_alefdw.v_student_summary",
+      "target_name": "bi_alefdw.v_student_summary",
+      "object_type": "MATERIALIZED_VIEW",
+      "status": "PARTIAL",
+      "confidence_score": 0.95,
+      "warnings_count": 1,
+      "warnings": [
+        {
+          "level": "WARNING",
+          "code": "ORDINAL_GROUPBY_EXPANDED",
+          "message": "Ordinal GROUP BY positions expanded to explicit column names (1 GROUP BY clause(s)). Spark SQL does not support positional GROUP BY.",
+          "suggestion": "Review expanded GROUP BY columns for correctness."
+        }
+      ],
+      "applied_rules": [
+        "SCHEMA_HARDCODED_MODE",
+        "ORDINAL_GROUPBY_EXPAND",
+        "CREATE_MATERIALIZED_LAKE_VIEW",
+        "INLINE_WARNING_COMMENTS"
+      ],
+      "unsupported_features": [],
+      "manual_review_items": [],
+      "transform_time_ms": 6.67
+    }
+  ]
+}

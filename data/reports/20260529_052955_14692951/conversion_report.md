@@ -1,9 +1,9 @@
 # Redshift → Fabric Conversion Report
 
-**Job ID:** `20260529_045558_38d2d766`  
+**Job ID:** `20260529_052955_14692951`  
 **Source:** `inline_input.sql`  
-**Generated:** 2026-05-29T04:55:58.683045+00:00  
-**Duration:** 9 ms  
+**Generated:** 2026-05-29T05:29:55.347169+00:00  
+**Duration:** 23 ms  
 
 ---
 
@@ -41,7 +41,6 @@
 
 | Rule | Applied Count |
 |------|---------------|
-| `SCHEMA_HARDCODED_MODE` | 1 |
 | `ORDINAL_GROUPBY_EXPAND` | 1 |
 | `CREATE_MATERIALIZED_LAKE_VIEW` | 1 |
 | `INLINE_WARNING_COMMENTS` | 1 |
