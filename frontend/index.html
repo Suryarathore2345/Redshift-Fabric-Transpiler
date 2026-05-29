@@ -300,6 +300,55 @@ header {
 .btn-convert.loading .spinner { display: block; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+
+/* ── Conversion Options Bar ─────────────────────────────────────────── */
+.options-bar {
+  display: flex; align-items: center; gap: 20px;
+  padding: 12px 20px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-2);
+  flex-wrap: wrap;
+}
+.options-group {
+  display: flex; align-items: center; gap: 10px;
+}
+.options-label {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-3); letter-spacing: .06em; white-space: nowrap;
+}
+/* Segmented toggle control */
+.seg-toggle {
+  display: inline-flex;
+  border: 1px solid var(--border-2);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: var(--bg-3);
+}
+.seg-btn {
+  padding: 5px 12px;
+  font-family: var(--font-mono); font-size: 11px; font-weight: 500;
+  color: var(--text-3); background: none; border: none;
+  cursor: pointer; transition: all .18s;
+  border-right: 1px solid var(--border-2);
+  white-space: nowrap;
+  display: flex; align-items: center; gap: 5px;
+}
+.seg-btn:last-child { border-right: none; }
+.seg-btn:hover { color: var(--text-2); background: var(--bg-panel); }
+.seg-btn.active {
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-color: rgba(0,212,255,.25);
+}
+.seg-btn.active-purple {
+  background: rgba(124,58,237,.18);
+  color: #a78bfa;
+  border-color: rgba(124,58,237,.3);
+}
+.options-divider {
+  width: 1px; height: 24px; background: var(--border-2); flex-shrink: 0;
+}
+
 /* ── Error banner ──────────────────────────────────────────────────── */
 .error-banner {
   display: none; margin: 16px 20px 0;
@@ -683,6 +732,38 @@ footer {
       </div>
     </div>
 
+
+    <!-- Options bar -->
+    <div class="options-bar">
+      <!-- MV Target -->
+      <div class="options-group">
+        <span class="options-label">MV TARGET</span>
+        <div class="seg-toggle" id="mvTargetToggle">
+          <button class="seg-btn active" id="mvBtn-warehouse_sp" onclick="setMvTarget('warehouse_sp')" title="Fabric Warehouse: Stored Procedure (T-SQL CTAS pattern)">
+            🏭 Warehouse SP
+          </button>
+          <button class="seg-btn" id="mvBtn-lakehouse_mv" onclick="setMvTarget('lakehouse_mv')" title="Fabric Lakehouse: Materialized Lake View (Spark SQL)">
+            🌊 Lakehouse MV
+          </button>
+        </div>
+      </div>
+
+      <div class="options-divider"></div>
+
+      <!-- Schema Mode -->
+      <div class="options-group">
+        <span class="options-label">SCHEMA MODE</span>
+        <div class="seg-toggle" id="schemaModeToggle">
+          <button class="seg-btn active" id="schemaBtn-dynamic" onclick="setSchemaMode('dynamic')" title="Replace schema names with parameterised placeholders like ${rs_bi_alefdw}">
+            🔀 Dynamic
+          </button>
+          <button class="seg-btn" id="schemaBtn-hardcoded" onclick="setSchemaMode('hardcoded')" title="Keep original schema names as-is in the converted DDL">
+            📌 Hardcoded
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Error banner -->
     <div class="error-banner" id="errorBanner"></div>
 
@@ -763,6 +844,8 @@ const API_BASE = '';   // empty = same origin; change to 'http://localhost:8000'
 let currentTab = 'paste';
 let selectedFile = null;
 let lastBatchResult = null;
+let mvTarget = 'warehouse_sp';
+let schemaMode = 'dynamic';
 
 // ── Initialise ──────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
@@ -889,6 +972,37 @@ function formatBytes(b) {
   return (b/1024/1024).toFixed(2) + ' MB';
 }
 
+
+// ── Options toggles ───────────────────────────────────────────────────────────
+function setMvTarget(val) {
+  mvTarget = val;
+  document.querySelectorAll('#mvTargetToggle .seg-btn').forEach(b => {
+    b.classList.remove('active', 'active-purple');
+  });
+  const btn = document.getElementById(`mvBtn-${val}`);
+  if (btn) {
+    btn.classList.add(val === 'lakehouse_mv' ? 'active-purple' : 'active');
+  }
+  // Update the convert button label to reflect target
+  const lbl = document.getElementById('btnText');
+  if (val === 'lakehouse_mv') {
+    lbl.textContent = '⚡ Convert to Lakehouse MV (Spark SQL)';
+  } else {
+    lbl.textContent = '⚡ Convert to Fabric T-SQL';
+  }
+}
+
+function setSchemaMode(val) {
+  schemaMode = val;
+  document.querySelectorAll('#schemaModeToggle .seg-btn').forEach(b => {
+    b.classList.remove('active', 'active-purple');
+  });
+  const btn = document.getElementById(`schemaBtn-${val}`);
+  if (btn) {
+    btn.classList.add(val === 'hardcoded' ? 'active-purple' : 'active');
+  }
+}
+
 // ── Conversion ────────────────────────────────────────────────────────────────
 async function runConversion() {
   hideError();
@@ -902,7 +1016,7 @@ async function runConversion() {
       const res = await fetch(`${API_BASE}/api/v1/convert/sql`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ sql, source_filename: 'inline_input.sql' }),
+        body: JSON.stringify({ sql, source_filename: 'inline_input.sql', mv_target: mvTarget, schema_mode: schemaMode }),
       });
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.statusText); }
       data = await res.json();
@@ -910,7 +1024,7 @@ async function runConversion() {
       if (!selectedFile) { showError('Please select a .sql or .txt file to upload.'); return; }
       const form = new FormData();
       form.append('file', selectedFile);
-      const res = await fetch(`${API_BASE}/api/v1/convert/file`, { method: 'POST', body: form });
+      const res = await fetch(`${API_BASE}/api/v1/convert/file?mv_target=${encodeURIComponent(mvTarget)}&schema_mode=${encodeURIComponent(schemaMode)}`, { method: 'POST', body: form });
       if (!res.ok) { const e = await res.json(); throw new Error(e.detail || res.statusText); }
       data = await res.json();
     }
@@ -1106,7 +1220,9 @@ function buildObjectCard(r, type, idx) {
                   : r.object_type === 'MATERIALIZED_VIEW' ? 'badge-mv'
                   : 'badge-view';
 
-  const typeLabel = r.object_type === 'MATERIALIZED_VIEW' ? 'MATVIEW → PROC'
+  // Determine MV label based on current mvTarget setting
+  const mvLabel = mvTarget === 'lakehouse_mv' ? 'MATVIEW → LAKE VIEW' : 'MATVIEW → PROC';
+  const typeLabel = r.object_type === 'MATERIALIZED_VIEW' ? mvLabel
                   : r.object_type;
 
   const warnBadge = r.warnings.length > 0
