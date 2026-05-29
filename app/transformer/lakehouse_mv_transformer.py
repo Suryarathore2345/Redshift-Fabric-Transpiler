@@ -1,11 +1,11 @@
 """
-Lakehouse MV Transformer 
+Lakehouse MV Transformer
 
 Converts a Redshift MATERIALIZED VIEW into a
 Fabric Lakehouse MATERIALIZED LAKE VIEW using Delta Lake / Spark SQL.
 
 Syntax emitted:
-    CREATE [OR REPLACE] MATERIALIZED LAKE VIEW [IF NOT EXISTS] <schema>.<name>
+    CREATE OR REPLACE MATERIALIZED LAKE VIEW <schema>.<name>
     AS
     <spark_sql_body>;
 
@@ -173,12 +173,12 @@ def _build_lake_view(schema: str, name: str, body: str) -> str:
     Emit a Fabric Lakehouse MATERIALIZED LAKE VIEW DDL.
 
     Syntax:
-        CREATE MATERIALIZED LAKE VIEW IF NOT EXISTS <schema>.<name>
+        CREATE OR REPLACE MATERIALIZED LAKE VIEW <schema>.<name>
         AS
         <spark_sql_body>;
     """
     return (
-        f"CREATE MATERIALIZED LAKE VIEW IF NOT EXISTS {schema}.{name}\n"
+        f"CREATE OR REPLACE MATERIALIZED LAKE VIEW {schema}.{name}\n"
         f"AS\n"
         f"{body};"
     )

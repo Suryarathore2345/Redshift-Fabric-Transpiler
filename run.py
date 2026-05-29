@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
-""" 
+"""
 run.py  ──  Direct entry point for the Redshift → Fabric DDL Converter
 
 Usage
 ─────
   # Convert a SQL file (most common)
   python run.py convert --file path/to/bi_alefdw_tables.sql
- 
+
   # Convert inline SQL from a string
   python run.py convert --sql "CREATE TABLE bi_alefdw.foo (id bigint ENCODE az64) DISTSTYLE AUTO;"
 
