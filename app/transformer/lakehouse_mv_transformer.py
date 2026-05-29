@@ -1,5 +1,5 @@
 """
-Lakehouse MV Transformer
+Lakehouse MV Transformer 
 
 Converts a Redshift MATERIALIZED VIEW into a
 Fabric Lakehouse MATERIALIZED LAKE VIEW using Delta Lake / Spark SQL.
