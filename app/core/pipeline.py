@@ -5,7 +5,7 @@ Central orchestrator that:
   1. Splits raw SQL into individual statements
   2. Classifies each statement (TABLE / VIEW / MATERIALIZED_VIEW)
   3. Parses each into an IR
-  4. Transforms each IR into Fabric T-SQL
+  4. Transforms each IR into Fabric T-SQL or Spark SQL
   5. Validates the output
   6. Aggregates results into a BatchConversionResult
 
@@ -30,6 +30,7 @@ from app.parser.table_parser import parse_table
 from app.parser.view_parser import parse_view
 from app.transformer.table_generator import generate_table
 from app.transformer.view_transformer import transform_view
+from app.transformer.lakehouse_mv_transformer import transform_lakehouse_mv
 from app.validator.validator import validate_result
 
 log = get_logger("pipeline")
@@ -38,6 +39,8 @@ log = get_logger("pipeline")
 def convert_sql(
     sql: str,
     source_filename: str = "input.sql",
+    mv_target: str = "warehouse_sp",
+    schema_mode: str = "dynamic",
 ) -> BatchConversionResult:
     """
     Full conversion pipeline for a raw SQL string.
@@ -45,12 +48,14 @@ def convert_sql(
     Args:
         sql:              Raw Redshift DDL SQL (may contain multiple statements).
         source_filename:  Logical filename for reporting.
+        mv_target:        'warehouse_sp' | 'lakehouse_mv'
+        schema_mode:      'dynamic' | 'hardcoded'
 
     Returns:
         BatchConversionResult with all table and view results.
     """
     t0 = time.perf_counter()
-    log.info("pipeline_start", source=source_filename)
+    log.info("pipeline_start", source=source_filename, mv_target=mv_target, schema_mode=schema_mode)
 
     batch = BatchConversionResult(source_filename=source_filename)
 
@@ -70,7 +75,7 @@ def convert_sql(
 
     # ── 3. Process each statement ─────────────────────────────────────────
     for stmt in classified:
-        result = _process_statement(stmt)
+        result = _process_statement(stmt, mv_target=mv_target, schema_mode=schema_mode)
         _register_result(batch, result)
 
     # ── 4. Compute batch totals ───────────────────────────────────────────
@@ -91,16 +96,27 @@ def convert_sql(
     return batch
 
 
-def _process_statement(stmt: ClassifiedStatement) -> ConversionResult:
+def _process_statement(
+    stmt: ClassifiedStatement,
+    mv_target: str = "warehouse_sp",
+    schema_mode: str = "dynamic",
+) -> ConversionResult:
     """Parse, transform, and validate a single classified DDL statement."""
     try:
         if stmt.object_type == ObjectType.TABLE:
             ir = parse_table(stmt.raw_sql)
             result = generate_table(ir, source_sql=stmt.raw_sql)
 
-        elif stmt.object_type in (ObjectType.VIEW, ObjectType.MATERIALIZED_VIEW):
+        elif stmt.object_type == ObjectType.MATERIALIZED_VIEW:
             ir = parse_view(stmt.raw_sql)
-            result = transform_view(ir, source_sql=stmt.raw_sql)
+            if mv_target == "lakehouse_mv":
+                result = transform_lakehouse_mv(ir, source_sql=stmt.raw_sql, schema_mode=schema_mode)
+            else:
+                result = transform_view(ir, source_sql=stmt.raw_sql, schema_mode=schema_mode)
+
+        elif stmt.object_type == ObjectType.VIEW:
+            ir = parse_view(stmt.raw_sql)
+            result = transform_view(ir, source_sql=stmt.raw_sql, schema_mode=schema_mode)
 
         else:
             return ConversionResult(
@@ -118,8 +134,9 @@ def _process_statement(stmt: ClassifiedStatement) -> ConversionResult:
                 )],
             )
 
-        # Run post-conversion validation
-        result = validate_result(result)
+        # Run post-conversion validation (skip for Lakehouse MV — Spark SQL not T-SQL)
+        if mv_target != "lakehouse_mv" or stmt.object_type != ObjectType.MATERIALIZED_VIEW:
+            result = validate_result(result)
         return result
 
     except Exception as exc:
