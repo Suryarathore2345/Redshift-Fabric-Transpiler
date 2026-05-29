@@ -21,99 +21,135 @@ REST API, and CLI.
 
 ---
 
-## Project Structure
+## ✨ What It Does
+
+Migrating from **AWS Redshift** to **Microsoft Fabric** requires rewriting every `CREATE TABLE` and `CREATE VIEW` — Redshift uses PostgreSQL-dialect SQL with proprietary storage hints, while Fabric uses T-SQL with its own function names, type system, and syntax rules.
+
+This tool automates that conversion entirely:
+
+- 📄 &nbsp;**Paste DDL or upload a `.sql` / `.txt` file** — both work the same way
+- ⚡ &nbsp;**Converts Tables, Views, and Materialised Views** in a single pass
+- 🏷 &nbsp;**Injects Flyway-compatible placeholders** like `${schema}`, `${rs_sales}`, `${os_reporting}` automatically — no config needed for new schemas
+- ⚠️ &nbsp;**Inline warnings on every affected line** — you see exactly what needs review, right in the SQL
+- 📊 &nbsp;**Confidence scoring per object** — HIGH CONFIDENCE / PARTIAL / MANUAL REVIEW / FAILED
+- 📥 &nbsp;**Download converted SQL and Markdown reports** from the UI
+
+<br/>
+
+---
+
+## 🖥 Web UI
+
+Start the server and open `http://localhost:8000` in your browser.
 
 ```
-redshift_to_fabric/
-│
-├── run.py                          ← CLI entry point (convert / validate / server / test / demo)
-├── requirements.txt
-├── pyproject.toml
-├── pytest.ini
-├── .env.example                    ← copy to .env and edit
-│
-├── app/                            ← Python package (all backend logic)
-│   ├── __init__.py
-│   │
-│   ├── core/                       ← Domain models, pipeline, settings, rules
-│   │   ├── __init__.py
-│   │   ├── models.py               ← IR dataclasses: TableIR, ViewIR, ColumnIR, ConversionResult
-│   │   ├── pipeline.py             ← Master orchestrator: convert_sql()
-│   │   ├── rules.py                ← Rule registry: DATATYPE_MAP, FUNCTION_MAP, BOOLEAN_REWRITES
-│   │   └── settings.py             ← Pydantic Settings: placeholders, paths, thresholds
-│   │
-│   ├── parser/                     ← DDL parsing layer
-│   │   ├── __init__.py
-│   │   ├── splitter.py             ← Split + classify multi-statement SQL files
-│   │   ├── table_parser.py         ← CREATE TABLE → TableIR
-│   │   └── view_parser.py          ← CREATE [MATERIALIZED] VIEW → ViewIR
-│   │
-│   ├── transformer/                ← Code generation layer
-│   │   ├── __init__.py
-│   │   ├── table_generator.py      ← TableIR → Fabric T-SQL CREATE TABLE
-│   │   └── view_transformer.py     ← ViewIR → Fabric T-SQL CREATE OR ALTER VIEW
-│   │
-│   ├── validator/                  ← Post-conversion validation
-│   │   ├── __init__.py
-│   │   └── validator.py            ← Residual Redshift syntax detection + confidence scoring
-│   │
-│   ├── reporter/                   ← Report building
-│   │   ├── __init__.py
-│   │   └── reporter.py             ← ConversionReport: rule stats, warning aggregation
-│   │
-│   ├── output/                     ← File output
-│   │   ├── __init__.py
-│   │   └── generator.py            ← Write .sql + .md + .json output files
-│   │
-│   ├── logging/                    ← Structured logging
-│   │   ├── __init__.py
-│   │   └── logger.py               ← structlog configuration
-│   │
-│   └── api/                        ← FastAPI REST layer
-│       ├── __init__.py
-│       ├── app.py                  ← Application factory: create_app()
-│       ├── schemas.py              ← Pydantic v2 request/response schemas
-│       └── routes/
-│           ├── __init__.py
-│           ├── health.py           ← GET /api/v1/health
-│           ├── convert.py          ← POST /api/v1/convert/sql|file|validate, GET /download
-│           └── reports.py          ← GET /api/v1/reports/
-│
-├── tests/
-│   ├── __init__.py
-│   ├── unit/
-│   │   ├── __init__.py
-│   │   ├── test_splitter.py        ← 9 tests: statement splitting + classification
-│   │   ├── test_table_parser.py    ← 17 tests: type mapping, ENCODE strip, distkey, sortkey
-│   │   ├── test_table_generator.py ← 12 tests: idempotent DDL, placeholders, bracket quoting
-│   │   └── test_view_transformer.py ← 36 tests: schema refs, boolean, NVL, DATE_TRUNC, LISTAGG, etc.
-│   │
-│   ├── integration/
-│   │   ├── __init__.py
-│   │   └── test_pipeline_integration.py ← end-to-end using real bi_alefdw_tables.sql
-│   │
-│   └── fixtures/
-│       ├── input/
-│       │   ├── bi_alefdw_tables.sql    ← Real Redshift source DDL (29 tables)
-│       │   └── sample_views.sql        ← Redshift view fixtures (3 views)
-│       └── output/                     ← Expected output snapshots (add as needed)
-│
-├── config/                         ← YAML rule overrides (future: externalise DATATYPE_MAP)
-│
-├── docker/
-│   ├── Dockerfile
-│   └── docker-compose.yml
-│
-├── scripts/                        ← Utility scripts (batch conversion, CI helpers)
-│
-├── docs/                           ← Architecture docs, ADRs
-│
-└── data/                           ← Runtime data (git-ignored)
-    ├── uploads/                    ← Uploaded SQL files
-    ├── outputs/                    ← Generated Fabric T-SQL + combined files
-    ├── reports/                    ← Markdown + JSON conversion reports
-    └── logs/                       ← Structured JSON logs
+┌─────────────────────────────────────────────────────────┐
+│  ✏️  PASTE SQL          📁  UPLOAD FILE                  │
+│  ─────────────────      ─────────────────────────────── │
+│  [ Paste Redshift    ]  [ Drop .sql / .txt here       ] │
+│  [ DDL here...       ]  [ or click to browse          ] │
+│                                                         │
+│              [ ⚡ Convert to Fabric T-SQL ]              │
+└─────────────────────────────────────────────────────────┘
 ```
+
+After conversion, results appear as expandable cards — one per object — showing the converted T-SQL with syntax highlighting, inline warnings, and applied transformation rules. All output is downloadable.
+
+<br/>
+
+---
+
+## 🔄 Conversion Examples
+
+### Table — `CREATE TABLE`
+
+**Input (Redshift):**
+
+```sql
+CREATE TABLE ST_Details.student_login_Logs (
+    login_date_id      bigint ENCODE raw,
+    school_id          bigint ENCODE raw DISTKEY,
+    outside_school_flag   boolean ENCODE raw,
+    login_time timestamp without time zone ENCODE az64
+) DISTSTYLE AUTO SORTKEY (school_id, login_date_id);
+```
+
+**Output (Fabric T-SQL):**
+
+```sql
+-- ══════════════════════════════════════════════════════════════════
+-- TABLE  : ST_Details.student_login_Logs
+-- Target : ${schema}.student_login_Logs
+-- Status : ✅ HIGH_CONFIDENCE  |  Confidence: 100%
+-- Warnings: 0  ← clean conversion
+-- ══════════════════════════════════════════════════════════════════
+IF OBJECT_ID('${schema}.student_login_Logs', 'U') IS NULL
+BEGIN
+    CREATE TABLE ${schema}.student_login_Logs (
+        login_date_id      BIGINT,
+        school_id          BIGINT,
+        outside_school_flag   BIT,
+        login_time DATETIME2(6)
+    );
+END;
+```
+
+> ENCODE, DISTKEY, DISTSTYLE, SORTKEY stripped · `boolean → BIT` · `timestamp → DATETIME2(6)` · Idempotent `IF OBJECT_ID` wrapper added · Schema parameterised as `${schema}`
+
+<br/>
+
+### View — `CREATE VIEW`
+
+**Input (Redshift):**
+
+```sql
+CREATE OR REPLACE VIEW reporting.vw_policy_summary AS
+SELECT
+    p.policy_id,
+    c.customer_name,
+    cl.claim_amount,
+    DATE_TRUNC('month', cl.claim_date)   AS claim_month,
+    NVL(cl.claim_status, 'PENDING')      AS claim_status,
+    COALESCE(p.premium_amount, 0)        AS premium
+FROM insurance.policy p
+JOIN customer.customer_master c  ON p.customer_id  = c.customer_id
+JOIN claims.claim_details cl     ON p.policy_id    = cl.policy_id
+GROUP BY 1, 2, 3, 4, 5, 6;
+```
+
+**Output (Fabric T-SQL):**
+
+```sql
+-- ══════════════════════════════════════════════════════════════════
+-- VIEW    : reporting.vw_policy_summary
+-- Target  : ${os_reporting}.vw_policy_summary
+-- Status  : ✅ HIGH_CONFIDENCE  |  Confidence: 100%
+-- Warnings: 0
+-- ══════════════════════════════════════════════════════════════════
+
+CREATE OR ALTER VIEW ${os_reporting}.vw_policy_summary AS
+SELECT
+    p.policy_id,
+    c.customer_name,
+    cl.claim_amount,
+    DATETRUNC(month, cl.claim_date)       AS claim_month,
+    ISNULL(cl.claim_status, 'PENDING')    AS claim_status,
+    ISNULL(p.premium_amount, 0)           AS premium
+FROM ${rs_insurance}.policy p
+JOIN ${rs_customer}.customer_master c  ON p.customer_id  = c.customer_id
+JOIN ${rs_claims}.claim_details cl     ON p.policy_id    = cl.policy_id
+GROUP BY
+    p.policy_id,
+    c.customer_name,
+    cl.claim_amount,
+    DATETRUNC(month, cl.claim_date),
+    ISNULL(cl.claim_status, 'PENDING'),
+    ISNULL(p.premium_amount, 0);
+```
+
+> `CREATE OR REPLACE VIEW → CREATE OR ALTER VIEW` · `DATE_TRUNC → DATETRUNC` · `NVL → ISNULL` · `COALESCE(a,b) → ISNULL(a,b)` · `GROUP BY 1,2,3 → explicit columns` · All schema names auto-parameterised · Table aliases (`p`, `c`, `cl`) preserved correctly
+
+<br/>
 
 ---
 
@@ -447,90 +483,31 @@ schema_placeholder_map = {
 
 ---
 
-## Conversion Rules
+## 🤝 Contributing
 
-### Datatype mapping
+1. Fork the repository
+2. Create a feature branch: `git checkout -b feature/my-feature`
+3. Make your changes
+4. Run the tests: `python run.py test`
+5. Commit and push: `git commit -m "Add my feature"`
+6. Open a Pull Request
 
-| Redshift Type | Fabric T-SQL | Notes |
-|---------------|-------------|-------|
-| `bigint` / `int8` | `BIGINT` | Direct |
-| `integer` / `int4` | `INT` | Direct |
-| `smallint` / `int2` | `SMALLINT` | Direct |
-| `double precision` / `float8` | `FLOAT(53)` | Direct |
-| `numeric(p,s)` / `decimal(p,s)` | `DECIMAL(p,s)` | Precision preserved |
-| `character varying(n)` / `varchar(n)` | `VARCHAR(n)` | Direct |
-| `character varying(65535)` or `> 8000` | `VARCHAR(MAX)` | Threshold-based |
-| `boolean` / `bool` | `BIT` | Direct |
-| `timestamp without time zone` | `DATETIME2(6)` | Direct |
-| `timestamp with time zone` | `DATETIME2(6)` | ⚠️ Timezone stripped |
-| `date` | `DATE` | Direct |
-| `text` | `VARCHAR(MAX)` | ⚠️ Warning issued |
-| `geometry` | `VARCHAR(MAX)` | ⚠️ No spatial support |
-| `super` | `VARCHAR(MAX)` | ⚠️ JSON as string |
-| `varbyte` | `VARBINARY(MAX)` | ⚠️ Warning issued |
-| `hllsketch` | `VARCHAR(MAX)` | 🔍 Manual review |
+Please ensure all 74 tests pass before submitting a PR.
 
-### Function mapping
-
-| Redshift | Fabric T-SQL | Confidence |
-|----------|-------------|-----------|
-| `NVL(x,y)` | `ISNULL(x,y)` | ✅ High |
-| `DATE_TRUNC('week', e)` | `DATETRUNC(iso_week, e)` | ✅ High |
-| `DATE_TRUNC('month', e)` | `DATETRUNC(month, e)` | ✅ High |
-| `CURRENT_DATE` | `CONVERT(DATE, GETDATE())` | ✅ High |
-| `LISTAGG(col,',')` | `STRING_AGG(col,',')` | ⚠️ DISTINCT unsupported |
-| `DECODE(e,v,r,…)` | `CASE WHEN …` | ⚠️ Review NULL semantics |
-| `IS TRUE / IS FALSE` | `= 1 / = 0` | ✅ High |
-| `expr::date` | `CONVERT(DATE, expr)` | ✅ High |
-| `date(expr)` | `CONVERT(DATE, expr)` | ✅ High |
-| `GETDATE()` | `GETDATE()` | ✅ High |
-| `DATEADD()` / `DATEDIFF()` | Same | ✅ High |
-| `REGEXP_*` | — | 🔍 Manual (unsupported) |
-| `QUALIFY` | Subquery pattern | ⚠️ Manual rewrite |
-
-### Redshift clauses stripped (no Fabric equivalent)
-
-- `ENCODE az64 / lzo / raw / bytedict / zstd`
-- `DISTSTYLE AUTO / KEY / ALL / EVEN`
-- `DISTKEY(column)`
-- `SORTKEY(columns)` / `COMPOUND SORTKEY` / `INTERLEAVED SORTKEY`
-- `BACKUP NO / YES`
-- `WITH NO SCHEMA BINDING`
-
-### Materialised views
-
-Converted to a stored procedure + CTAS refresh pattern:
-
-```sql
-CREATE OR ALTER PROCEDURE ${os_bi_alefdw}.usp_refresh_<name> AS
-BEGIN
-    DROP TABLE IF EXISTS ${os_bi_alefdw}.<name>_staging;
-    CREATE TABLE ${os_bi_alefdw}.<name>_staging AS <original SELECT>;
-    DROP TABLE IF EXISTS ${os_bi_alefdw}.<name>;
-    EXEC sp_rename '<name>_staging', '<name>';
-END;
-```
+<br/>
 
 ---
 
-## Extending the System
+## 📄 License
 
-### Add a new source dialect (e.g. Snowflake)
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
 
-1. Create `app/parser/snowflake_parser.py` implementing `parse_table()` and `parse_view()` returning the same `TableIR` / `ViewIR` models.
-2. Create `app/transformer/snowflake_transformer.py` if Snowflake → Fabric needs different rules.
-3. Add a `dialect` parameter to `convert_sql()` in `pipeline.py` to route to the right parser.
-4. Add Snowflake-specific entries to `rules.py`.
+<br/>
 
-No changes needed to the validator, reporter, output generator, or API.
+---
 
-### Add a new transformation rule
+<div align="center">
 
-1. Add the function mapping to `FUNCTION_MAP` in `core/rules.py`.
-2. Add a transformation function in `view_transformer.py` following the `(sql) → (sql, warnings)` signature.
-3. Add it to the `pipeline` list inside `transform_view()`.
-4. Add a unit test in `tests/unit/test_view_transformer.py`.
+Built for enterprise SQL migration · Python + FastAPI · MIT License
 
-### Add a new datatype mapping
-
-Add the entry to `DATATYPE_MAP` in `core/rules.py` — the table parser reads it automatically.
+</div>

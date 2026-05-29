@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""
+""" 
 run.py  ──  Direct entry point for the Redshift → Fabric DDL Converter
 
 Usage
