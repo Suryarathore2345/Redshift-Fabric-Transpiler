@@ -1,6 +1,6 @@
 """
 Integration tests — Full pipeline using real DDL fixtures.
-
+ 
 These tests load the actual bi_alefdw_tables.sql and sample_views.sql
 fixtures and run the complete conversion pipeline end-to-end.
 """
