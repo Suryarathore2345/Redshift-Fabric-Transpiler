@@ -1,23 +1,32 @@
-# Redshift → Microsoft Fabric DDL Converter
+<div align="center">
 
-Enterprise-grade backend for converting AWS Redshift TABLE and VIEW DDL into
-parameterised Microsoft Fabric Warehouse T-SQL, with full validation, reporting,
-REST API, and CLI.
+<br/>
 
----
+<!-- Hero Banner using shields.io badges as visual accent -->
+<img src="https://img.shields.io/badge/AWS%20Redshift-%23FF9900?style=for-the-badge&logo=amazonaws&logoColor=white" alt="AWS Redshift"/>
+&nbsp;&nbsp;
+<img src="https://img.shields.io/badge/%E2%86%92-2d2d2d?style=for-the-badge" alt="→"/>
+&nbsp;&nbsp;
+<img src="https://img.shields.io/badge/Microsoft%20Fabric-%230078D4?style=for-the-badge&logo=microsoft&logoColor=white" alt="Microsoft Fabric"/>
 
-## Table of Contents
+<br/><br/>
 
-1. [Project Structure](#project-structure)
-2. [Architecture Overview](#architecture-overview)
-3. [Quick Start (Local Setup)](#quick-start)
-4. [CLI Usage](#cli-usage)
-5. [REST API Usage](#rest-api-usage)
-6. [Running Tests](#running-tests)
-7. [Docker](#docker)
-8. [Configuration Reference](#configuration-reference)
-9. [Conversion Rules](#conversion-rules)
-10. [Extending the System](#extending-the-system)
+# Redshift → Fabric DDL Converter
+
+**Enterprise-grade SQL migration tool that converts AWS Redshift DDL into production-ready Microsoft Fabric T-SQL.**
+
+Upload a `.sql` file or paste DDL directly — get parameterised Fabric T-SQL with full diagnostics, inline warnings, and downloadable output in seconds.
+
+<br/>
+
+[![Python](https://img.shields.io/badge/Python-3.11%2B-blue?style=flat-square&logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111%2B-009688?style=flat-square&logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Tests](https://img.shields.io/badge/Tests-74%20passing-brightgreen?style=flat-square&logo=pytest&logoColor=white)](tests/)
+[![Version](https://img.shields.io/badge/Version-v5-orange?style=flat-square)](CHANGELOG.md)
+
+<br/>
+
+</div>
 
 ---
 
@@ -66,30 +75,30 @@ After conversion, results appear as expandable cards — one per object — show
 **Input (Redshift):**
 
 ```sql
-CREATE TABLE ST_Details.student_login_Logs (
-    login_date_id      bigint ENCODE raw,
-    school_id          bigint ENCODE raw DISTKEY,
+CREATE TABLE bi_alefdw.student_login (
+    login_date_dw_id      bigint ENCODE raw,
+    school_dw_id          bigint ENCODE raw DISTKEY,
     outside_school_flag   boolean ENCODE raw,
-    login_time timestamp without time zone ENCODE az64
-) DISTSTYLE AUTO SORTKEY (school_id, login_date_id);
+    login_local_date_time timestamp without time zone ENCODE az64
+) DISTSTYLE AUTO SORTKEY (school_dw_id, login_date_dw_id);
 ```
 
 **Output (Fabric T-SQL):**
 
 ```sql
 -- ══════════════════════════════════════════════════════════════════
--- TABLE  : ST_Details.student_login_Logs
--- Target : ${schema}.student_login_Logs
+-- TABLE  : bi_alefdw.student_login
+-- Target : ${schema}.student_login
 -- Status : ✅ HIGH_CONFIDENCE  |  Confidence: 100%
 -- Warnings: 0  ← clean conversion
 -- ══════════════════════════════════════════════════════════════════
-IF OBJECT_ID('${schema}.student_login_Logs', 'U') IS NULL
+IF OBJECT_ID('${schema}.student_login', 'U') IS NULL
 BEGIN
-    CREATE TABLE ${schema}.student_login_Logs (
-        login_date_id      BIGINT,
-        school_id          BIGINT,
+    CREATE TABLE ${schema}.student_login (
+        login_date_dw_id      BIGINT,
+        school_dw_id          BIGINT,
         outside_school_flag   BIT,
-        login_time DATETIME2(6)
+        login_local_date_time DATETIME2(6)
     );
 END;
 ```
@@ -153,333 +162,274 @@ GROUP BY
 
 ---
 
-## Architecture Overview
+## 🗺 Automatic Schema Parameterisation
 
-```
-                        ┌─────────────────────────────────────────────────┐
-                        │               run.py  /  FastAPI                │
-                        │   CLI: convert | validate | server | test | demo│
-                        └────────────────────┬────────────────────────────┘
-                                             │
-                                             ▼
-                        ┌─────────────────────────────────────────────────┐
-                        │              core/pipeline.py                   │
-                        │         convert_sql(sql, filename)              │
-                        └──────┬────────────────────────────┬─────────────┘
-                               │                            │
-               ┌───────────────▼──────┐       ┌────────────▼────────────┐
-               │  parser/splitter.py  │       │  (same for each stmt)   │
-               │  split_statements()  │       │                         │
-               │  classify_all()      │       │                         │
-               └───────────┬──────────┘       └─────────────────────────┘
-                           │
-          ┌────────────────┼─────────────────┐
-          │                │                 │
-          ▼                ▼                 ▼
-  ┌──────────────┐ ┌──────────────┐ ┌──────────────────────┐
-  │ table_parser │ │ view_parser  │ │  (future: proc_parser│
-  │ parse_table()│ │ parse_view() │ │   schema_parser)     │
-  │  → TableIR  │ │  → ViewIR   │ └──────────────────────┘
-  └──────┬───────┘ └──────┬───────┘
-         │                │
-         ▼                ▼
-  ┌──────────────┐ ┌───────────────────┐
-  │table_generator│ │view_transformer   │
-  │generate_table│ │transform_view()   │
-  │  → T-SQL    │ │  → T-SQL          │
-  └──────┬───────┘ └──────┬────────────┘
-         │                │
-         └────────┬────────┘
-                  ▼
-         ┌─────────────────┐
-         │  validator.py   │
-         │ validate_result │
-         └────────┬────────┘
-                  ▼
-         ┌─────────────────┐
-         │  output/        │
-         │  generator.py   │
-         │  write_outputs  │
-         └────────┬────────┘
-                  ▼
-          data/outputs/<job>/
-          ├── tables/converted_tables.sql
-          ├── views/converted_views.sql
-          └── combined/all_converted.sql
-          data/reports/<job>/
-          ├── conversion_report.md
-          └── conversion_summary.json
-```
+One of the most powerful features: **any schema name is automatically converted to a Flyway placeholder** with zero configuration.
 
-### Key Design Principles
+| Redshift SQL | Fabric Output | How |
+|---|---|---|
+| `FROM insurance.policy` | `FROM ${rs_insurance}.policy` | Auto-generated |
+| `FROM sales.orders` | `FROM ${rs_sales}.orders` | Auto-generated |
+| `CREATE VIEW reporting.v_foo` | `CREATE OR ALTER VIEW ${os_reporting}.v_foo` | Auto-generated |
+| `FROM bi_alefdw_dev.t` | `FROM ${rs_bi_alefdw}.t` | Override (dev→prod) |
 
-| Principle | Implementation |
-|-----------|----------------|
-| **IR decoupling** | Parser → IR → Generator. Parser never emits SQL. Generator never reads raw SQL. |
-| **Rule registry** | All type/function/syntax mappings centralised in `core/rules.py`. No hardcoded strings in parsers. |
-| **Pipeline pattern** | `view_transformer.py` runs transformations as an ordered, independent function list. |
-| **Confidence scoring** | Every object gets a `0.0–1.0` score. Warnings penalise the score. Validator adds further penalties. |
-| **Idempotent output** | Tables wrapped in `IF OBJECT_ID(...) IS NULL BEGIN ... END` (matches reference repo). |
-| **Parameterisation** | All schema names replaced with Flyway placeholders (`${schema}`, `${rs_bi_alefdw}`, etc.). |
+Only add to `settings.py` when you need **dev and prod to share the same placeholder**. For everything else, it just works.
+
+<br/>
 
 ---
 
-## Quick Start
+## 📋 What Gets Converted
+
+### Redshift → Fabric: Type Mapping
+
+| Redshift | Fabric T-SQL |
+|---|---|
+| `bigint`, `int8` | `BIGINT` |
+| `integer`, `int4` | `INT` |
+| `boolean`, `bool` | `BIT` |
+| `timestamp without time zone` | `DATETIME2(6)` |
+| `timestamp with time zone` | `DATETIME2(6)` ⚠️ |
+| `numeric(p,s)` | `DECIMAL(p,s)` |
+| `character varying(n)` | `VARCHAR(n)` |
+| `character varying(65535)` | `VARCHAR(MAX)` |
+| `double precision` | `FLOAT(53)` |
+| `geometry` | `VARCHAR(MAX)` ⚠️ |
+| `super` | `VARCHAR(MAX)` ⚠️ |
+| `text` | `VARCHAR(MAX)` |
+
+### Redshift → Fabric: Function Mapping
+
+| Redshift | Fabric T-SQL |
+|---|---|
+| `NVL(a, b)` | `ISNULL(a, b)` |
+| `NVL(a, b, c)` | `COALESCE(a, b, c)` |
+| `COALESCE(a, b)` | `ISNULL(a, b)` |
+| `DATE_TRUNC('week', x)` | `DATETRUNC(iso_week, x)` |
+| `DATE_TRUNC('month', x)` | `DATETRUNC(month, x)` |
+| `DATE_PART_YEAR(x)` | `DATEPART(YEAR, x)` |
+| `CURRENT_DATE` | `CONVERT(DATE, GETDATE())` |
+| `CAST(x AS type)` | `CONVERT(type, x)` |
+| `LISTAGG(col, ',')` | `STRING_AGG(col, ',')` |
+| `TRUNC(SYSDATE) - 1` | `DATEADD(DAY, -1, CAST(GETDATE() AS DATE))` |
+| `CONVERT_TIMEZONE(...)` | `AT TIME ZONE` pattern |
+| `INITCAP(x)` | `UPPER(x)` ⚠️ |
+| `a \|\| b` | `a + b` |
+| `IS TRUE / IS FALSE` | `= 1 / = 0` |
+| `GROUP BY 1, 2, 3` | Expanded to column names |
+
+### Redshift Clauses Automatically Stripped
+
+`ENCODE` · `DISTKEY` · `DISTSTYLE` · `SORTKEY` · `INTERLEAVED SORTKEY` · `BACKUP NO` · `WITH NO SCHEMA BINDING`
+
+### Materialised Views
+
+Converted to a **stored procedure + CTAS refresh pattern** since Fabric Warehouse does not support materialised views natively:
+
+```sql
+CREATE OR ALTER PROCEDURE ${os_bi_alefdw}.usp_refresh_agg_login AS
+BEGIN
+    DROP TABLE IF EXISTS ${os_bi_alefdw}.agg_login_staging;
+    CREATE TABLE ${os_bi_alefdw}.agg_login_staging AS <original SELECT>;
+    DROP TABLE IF EXISTS ${os_bi_alefdw}.agg_login;
+    EXEC sp_rename 'agg_login_staging', 'agg_login';
+END;
+```
+
+<br/>
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- Python 3.11+
-- pip
+- Python 3.11 or higher
+- pip (or `python -m pip`)
 
-### 1. Clone / copy the project
+### Setup (Windows)
+
+```powershell
+# 1. Navigate to the project folder
+cd redshift_to_fabric
+
+# 2. Create virtual environment
+python -m venv .venv
+
+# 3. Allow scripts (if needed)
+Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+
+# 4. Activate virtual environment
+.\.venv\Scripts\Activate.ps1
+
+# 5. Install dependencies
+python -m pip install -r requirements.txt
+
+# 6. Start the server
+python run.py server
+```
+
+### Setup (macOS / Linux)
 
 ```bash
 cd redshift_to_fabric
-```
-
-### 2. Create a virtual environment
-
-```bash
-python -m venv .venv
-source .venv/bin/activate        # Linux / macOS
-# OR
-.venv\Scripts\activate           # Windows
-```
-
-### 3. Install dependencies
-
-```bash
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
+python run.py server
 ```
 
-### 4. Copy environment config
+### Open in browser
 
-```bash
-cp .env.example .env
-# Edit .env if you need to change placeholder names or directories
+```
+http://localhost:8000          ← Web UI
+http://localhost:8000/docs     ← Interactive API docs
 ```
 
-### 5. Run the built-in demo (no files needed)
+<br/>
+
+---
+
+## 💻 CLI Usage
 
 ```bash
+# Run the built-in demo (no files needed)
 python run.py demo
-```
 
-You will see a full conversion of 5 sample objects with the output printed to terminal
-and files written to `data/outputs/` and `data/reports/`.
+# Convert a DDL file
+python run.py convert --file bi_alefdw_tables.sql
 
----
+# Convert and save to a specific folder
+python run.py convert --file my_tables.sql --out-dir ./fabric_output
 
-## CLI Usage
+# Convert inline SQL
+python run.py convert --sql "CREATE TABLE sales.orders (id bigint ENCODE raw) DISTSTYLE AUTO;"
 
-### Convert a real Redshift DDL file
-
-```bash
-python run.py convert --file path/to/bi_alefdw_tables.sql
-```
-
-### Convert and write to a custom output directory
-
-```bash
-python run.py convert --file bi_alefdw_tables.sql --out-dir ./my_results
-```
-
-### Convert inline SQL directly
-
-```bash
-python run.py convert --sql "
-CREATE TABLE bi_alefdw.student_login (
-    login_date_dw_id bigint ENCODE raw,
-    school_dw_id     bigint ENCODE raw DISTKEY,
-    outside_school_flag boolean ENCODE raw
-) DISTSTYLE AUTO SORTKEY (school_dw_id, login_date_dw_id);
-"
-```
-
-### Validate converted T-SQL for residual Redshift syntax
-
-```bash
+# Validate converted SQL for leftover Redshift syntax
 python run.py validate --file data/outputs/my_job/combined/all_converted.sql
+
+# Run all tests
+python run.py test
 ```
 
-### Start the REST API server
-
-```bash
-python run.py server
-# Docs at: http://localhost:8000/docs
-```
-
-### Start with auto-reload (development)
-
-```bash
-python run.py server --port 9000 --reload
-```
-
-### Exit codes
-
-| Code | Meaning |
-|------|---------|
-| `0` | All objects converted with high confidence |
-| `1` | Partial success — some warnings or manual review items |
-| `2` | All objects failed, or input file not found |
+<br/>
 
 ---
 
-## REST API Usage
+## 🔌 REST API
 
-Start the server first:
-
-```bash
-python run.py server
-```
-
-### Convert inline SQL
+The same conversion engine is available as a REST API:
 
 ```bash
+# Convert inline SQL
 curl -X POST http://localhost:8000/api/v1/convert/sql \
   -H "Content-Type: application/json" \
-  -d '{
-    "sql": "CREATE TABLE bi_alefdw.scaffold (key integer ENCODE az64) DISTSTYLE AUTO;",
-    "source_filename": "test.sql"
-  }'
-```
+  -d '{"sql": "CREATE TABLE sales.orders (id bigint ENCODE raw) DISTSTYLE AUTO;"}'
 
-### Upload and convert a file
-
-```bash
+# Upload a file
 curl -X POST http://localhost:8000/api/v1/convert/file \
   -F "file=@bi_alefdw_tables.sql"
-```
 
-### Validate converted SQL
-
-```bash
+# Validate converted SQL
 curl -X POST http://localhost:8000/api/v1/convert/validate \
   -H "Content-Type: application/json" \
-  -d '{"sql": "CREATE TABLE ${schema}.foo (id BIGINT) DISTSTYLE AUTO;"}'
+  -d '{"sql": "SELECT * FROM ${rs_sales}.orders;"}'
 ```
 
-### List all conversion reports
+Full interactive documentation available at `/docs` (Swagger UI) and `/redoc`.
 
-```bash
-curl http://localhost:8000/api/v1/reports/
-```
-
-### Fetch a specific JSON report
-
-```bash
-curl http://localhost:8000/api/v1/reports/20240101_120000_abc12345
-```
-
-### Interactive API docs (Swagger UI)
-
-Open in browser: **http://localhost:8000/docs**
+<br/>
 
 ---
 
-## Running Tests
+## 📁 Output Files
 
-### Run all tests
-
-```bash
-python run.py test
-# OR directly:
-pytest tests/ -v
-```
-
-### Run only unit tests (fast, no file I/O)
-
-```bash
-python run.py test --suite unit
-```
-
-### Run only integration tests (uses real fixture files)
-
-```bash
-python run.py test --suite integration
-```
-
-### Run with coverage report
-
-```bash
-python run.py test --cov
-# Opens HTML report at htmlcov/index.html
-```
-
-### Run a specific test by name
-
-```bash
-python run.py test -k "test_boolean_maps_to_bit"
-```
-
-### Run pytest directly with more options
-
-```bash
-pytest tests/unit/test_table_parser.py -v --tb=long
-pytest tests/ -v -k "not slow"
-```
-
-### Expected test results
+Every conversion job produces:
 
 ```
-tests/unit/test_splitter.py         .... 9 tests
-tests/unit/test_table_parser.py     .... 17 tests
-tests/unit/test_table_generator.py  .... 12 tests
-tests/unit/test_view_transformer.py .... 36 tests
-tests/integration/...               .... 25 tests
-─────────────────────────────────────────────────
-Total: 74+ tests  |  Expected: all pass
+data/
+├── outputs/<job_id>/
+│   ├── combined/all_converted.sql     ← everything in one file
+│   ├── tables/converted_tables.sql    ← tables only
+│   └── views/converted_views.sql      ← views only
+└── reports/<job_id>/
+    ├── conversion_report.md           ← human-readable summary
+    └── conversion_summary.json        ← machine-readable stats
 ```
+
+<br/>
 
 ---
 
-## Docker
+## 🏗 Project Structure
 
-### Build and run with Docker Compose
-
-```bash
-cd docker
-docker-compose up --build
+```
+redshift_to_fabric/
+├── run.py                    ← Entry point: convert / server / test / demo
+├── requirements.txt
+│
+├── app/
+│   ├── core/
+│   │   ├── settings.py       ← All configuration & schema placeholder mappings
+│   │   ├── rules.py          ← Datatype & function mapping rules
+│   │   └── pipeline.py       ← Conversion orchestrator
+│   ├── parser/               ← DDL parsing → intermediate representation
+│   ├── transformer/          ← Redshift → Fabric T-SQL transformation
+│   ├── validator/            ← Post-conversion residual syntax checking
+│   ├── output/               ← File writing & report generation
+│   └── api/                  ← FastAPI routes & schemas
+│
+├── frontend/
+│   └── index.html            ← Web UI (served at /)
+│
+└── tests/
+    ├── unit/                 ← 74 unit tests
+    ├── integration/          ← End-to-end pipeline tests
+    └── fixtures/             ← Real Redshift DDL test inputs
 ```
 
-API will be available at **http://localhost:8000**
-
-### Build standalone image
-
-```bash
-docker build -f docker/Dockerfile -t redshift-fabric-converter .
-docker run -p 8000:8000 redshift-fabric-converter
-```
+<br/>
 
 ---
 
-## Configuration Reference
+## ⚙️ Configuration
 
-All settings are in `app/core/settings.py` and can be overridden via `.env`:
+Schema placeholder mappings are **automatically generated** at runtime:
 
-| Variable | Default | Description |
-|----------|---------|-------------|
-| `LOG_LEVEL` | `INFO` | Logging level |
-| `API_PORT` | `8000` | Server port |
-| `UPLOAD_DIR` | `data/uploads` | Where uploaded files are stored |
-| `OUTPUT_DIR` | `data/outputs` | Where converted SQL files go |
-| `REPORTS_DIR` | `data/reports` | Where MD + JSON reports go |
-| `MAX_UPLOAD_SIZE_MB` | `50` | Upload file size limit |
-| `FLYWAY_SCHEMA_PLACEHOLDER` | `${schema}` | Schema placeholder in TABLE DDL |
-| `OUTPUT_SCHEMA_PLACEHOLDER` | `${os_bi_alefdw}` | Schema placeholder in VIEW DDL |
-| `STRIP_TABLE_SUFFIXES_IN_VIEWS` | `true` | Strip `_mv`/`_view` from table refs |
+- Any source schema `xyz` → placeholder `${rs_xyz}`  
+- Any view output schema `xyz` → placeholder `${os_xyz}`
 
-### Schema placeholder mapping
-
-Edit `schema_placeholder_map` in `settings.py` to add new source→target schema mappings:
+To override specific schemas (e.g. dev/prod sharing one placeholder), edit `app/core/settings.py`:
 
 ```python
-schema_placeholder_map = {
-    "bi_alefdw":     "${rs_bi_alefdw}",
-    "bi_alefdw_dev": "${rs_bi_alefdw}",
-    "alefdw":        "${rs_alefdw}",
+schema_placeholder_map_overrides = {
+    "bi_alefdw_dev": "${rs_bi_alefdw}",   # dev uses same placeholder as prod
+    "alefdw_dev":    "${rs_alefdw}",
 }
 ```
+
+All other settings (port, upload limits, log level, output paths) can be configured via `.env`:
+
+```env
+API_PORT=8000
+LOG_LEVEL=INFO
+MAX_UPLOAD_SIZE_MB=50
+```
+
+<br/>
+
+---
+
+## 🧪 Running Tests
+
+```bash
+python run.py test                     # all 74 tests
+python run.py test --suite unit        # fast unit tests only
+python run.py test --suite integration # end-to-end with real DDL fixtures
+python run.py test --cov               # with coverage report
+```
+
+<br/>
 
 ---
 
@@ -494,20 +444,11 @@ schema_placeholder_map = {
 
 Please ensure all 74 tests pass before submitting a PR.
 
-<br/>
-
----
-
-## 📄 License
-
-This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
-
-<br/>
 
 ---
 
 <div align="center">
 
-Built for enterprise SQL migration · Python + FastAPI · MIT License
+Built for enterprise SQL migration · Python + FastAPI
 
 </div>
