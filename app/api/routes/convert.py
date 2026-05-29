@@ -95,7 +95,12 @@ async def convert_sql_endpoint(request: ConvertSQLRequest) -> BatchSummarySchema
     job_id = str(uuid.uuid4())[:8]
     log.info("convert_sql_request", filename=request.source_filename, job_id=job_id)
 
-    batch = convert_sql(request.sql, source_filename=request.source_filename)
+    batch = convert_sql(
+        request.sql,
+        source_filename=request.source_filename,
+        mv_target=request.mv_target,
+        schema_mode=request.schema_mode,
+    )
     generated = write_outputs(batch, job_id=job_id)
 
     return _build_response(batch, generated)
@@ -106,7 +111,11 @@ async def convert_sql_endpoint(request: ConvertSQLRequest) -> BatchSummarySchema
     response_model=BatchSummarySchema,
     summary="Upload a Redshift DDL .sql file and convert",
 )
-async def convert_file_endpoint(file: UploadFile = File(...)) -> BatchSummarySchema:
+async def convert_file_endpoint(
+    file: UploadFile = File(...),
+    mv_target: str = "warehouse_sp",
+    schema_mode: str = "dynamic",
+) -> BatchSummarySchema:
     """
     Upload a `.sql` file containing Redshift DDL.
     Returns converted Fabric T-SQL with full diagnostics.
@@ -131,7 +140,7 @@ async def convert_file_endpoint(file: UploadFile = File(...)) -> BatchSummarySch
     job_id = str(uuid.uuid4())[:8]
     log.info("convert_file_request", filename=file.filename, size=len(content), job_id=job_id)
 
-    batch = convert_sql(sql, source_filename=file.filename)
+    batch = convert_sql(sql, source_filename=file.filename, mv_target=mv_target, schema_mode=schema_mode)
     generated = write_outputs(batch, job_id=job_id)
 
     return _build_response(batch, generated)
