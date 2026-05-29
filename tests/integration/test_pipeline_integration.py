@@ -1,6 +1,6 @@
 """
 Integration tests — Full pipeline using real DDL fixtures.
- 
+
 These tests load the actual bi_alefdw_tables.sql and sample_views.sql
 fixtures and run the complete conversion pipeline end-to-end.
 """
@@ -14,7 +14,7 @@ from app.core.models import ConversionStatus, ObjectType
 
 FIXTURES_DIR = Path(__file__).parent.parent / "fixtures" / "input"
 
- 
+
 @pytest.fixture(scope="module")
 def tables_sql() -> str:
     path = FIXTURES_DIR / "bi_alefdw_tables.sql"
