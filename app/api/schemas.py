@@ -12,6 +12,22 @@ from pydantic import BaseModel, Field
 class ConvertSQLRequest(BaseModel):
     sql: str = Field(..., description="Raw Redshift DDL SQL (one or many statements)")
     source_filename: str = Field("inline_input.sql", description="Logical filename for reporting")
+    mv_target: str = Field(
+        "warehouse_sp",
+        description=(
+            "Target for Materialized Views: "
+            "'warehouse_sp' = Fabric Warehouse Stored Procedure (T-SQL CTAS pattern), "
+            "'lakehouse_mv' = Fabric Lakehouse Materialized Lake View (Spark SQL)"
+        ),
+    )
+    schema_mode: str = Field(
+        "dynamic",
+        description=(
+            "Schema output mode: "
+            "'dynamic' = parameterised placeholders like ${rs_bi_alefdw} (default), "
+            "'hardcoded' = keep original schema names as-is"
+        ),
+    )
 
     model_config = {"json_schema_extra": {
         "example": {
@@ -23,6 +39,8 @@ class ConvertSQLRequest(BaseModel):
                 ") DISTSTYLE AUTO SORTKEY (school_dw_id, login_date_dw_id);\n"
             ),
             "source_filename": "bi_alefdw_tables.sql",
+            "mv_target": "warehouse_sp",
+            "schema_mode": "dynamic",
         }
     }}
 
