@@ -52,9 +52,15 @@ log = get_logger("view_transformer")
 # ── Public API ────────────────────────────────────────────────────────────────
 
 
-def transform_view(ir: ViewIR, source_sql: str = "") -> ConversionResult:
+def transform_view(ir: ViewIR, source_sql: str = "", schema_mode: str = "dynamic") -> ConversionResult:
     """
     Apply all transformation rules to a ViewIR and produce a ConversionResult.
+
+    Args:
+        ir:          Parsed ViewIR.
+        source_sql:  Original raw SQL.
+        schema_mode: 'dynamic' = parameterised ${...} placeholders (default),
+                     'hardcoded' = keep original schema names as-is.
     """
     t0 = time.perf_counter()
 
@@ -102,6 +108,10 @@ def transform_view(ir: ViewIR, source_sql: str = "") -> ConversionResult:
     ]
 
     for rule_id, fn in pipeline:
+        # Skip schema parameterisation in hardcoded mode
+        if rule_id == "SCHEMA_PARAMETERISATION" and schema_mode == "hardcoded":
+            applied_rules.append("SCHEMA_HARDCODED_MODE")
+            continue
         body, rule_warns = fn(body)
         if rule_warns or _rule_changed(body):
             applied_rules.append(rule_id)
@@ -109,14 +119,15 @@ def transform_view(ir: ViewIR, source_sql: str = "") -> ConversionResult:
 
     # ── Build CREATE OR ALTER VIEW / stored procedure ─────────────────────
     is_matview = ir.object_type == ObjectType.MATERIALIZED_VIEW
-    # Auto-derive output placeholder from the view's own schema name
-    # e.g. CREATE VIEW reporting.my_view → ${os_reporting}.my_view
-    #      CREATE VIEW bi_alefdw.my_view → ${os_bi_alefdw}.my_view
-    output_schema = (
-        settings.get_output_placeholder(ir.schema)
-        if ir.schema
-        else settings.output_schema_placeholder
-    )
+    # Resolve output schema based on schema_mode
+    if schema_mode == "hardcoded":
+        output_schema = ir.schema if ir.schema else "dbo"
+    else:
+        output_schema = (
+            settings.get_output_placeholder(ir.schema)
+            if ir.schema
+            else settings.output_schema_placeholder
+        )
     view_name = ir.name
 
     applied_rules.append("CREATE_OR_ALTER_VIEW")
